@@ -20,22 +20,31 @@ class home(APIView):
 
 class RegisterApi(APIView):
     def post(self,request):
-        data = request.data
-        serializer = RegisterSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message':"User Registered Successfully"},status=status.HTTP_201_CREATED)
-        else:    
-            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        try:
+            data = request.data
+            serializer = RegisterSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'message':"User Registered Successfully"},status=status.HTTP_201_CREATED)
+            else:    
+                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         
 
 class LoginApi(APIView):
     def post(self,request):
-        data = request.data
+        try:
+            data = request.data
+        except:
+            return Response({'message':"Invalid or missing parameters"},status=status.HTTP_400_BAD_REQUEST)
+        
+        if not data:
+            return Response({'message':"No data provided"},status=status.HTTP_400_BAD_REQUEST)
         serializer = LoginSerializer(data=data)
         if serializer.is_valid():
-            user = authenticate(username=serializer.validated_data['username'],password=serializer.validated_data['password'])
+            user = authenticate(username=serializer.validated_data['username'].lower(),password=serializer.validated_data['password'])
             if user:
                 refresh = RefreshToken.for_user(user)
 

@@ -14,6 +14,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ["username", "email", "password", "password2"]
         
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username is already taken.")
+        return value
+        
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email is already in use.")
@@ -30,8 +35,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("password2")
         user = User.objects.create(
-            username=validated_data['username'],
-            email=validated_data['email'],
+            username=validated_data['username'].lower(),
+            email=validated_data['email'].lower(),
         )
         user.set_password(validated_data['password'])
         user.save()
