@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 # Create your views here.
 
 class home(APIView):
-    permission_classes = [IsAuthenticated] #this is for test
+    permission_classes = [IsAuthenticated] #this is for test pu
     def get(self,request):
         return Response({'status':200,'message':"Working"})
         
