@@ -7,5 +7,8 @@ urlpatterns = [
     path('',home.as_view(),),
     path('register/',RegisterApi.as_view()),
     path('login/',LoginApi.as_view()),
+    path('fitness-goal/',FitnessGoalApi.as_view()),
+    path('add-activity/',ActivityApi.as_view()),
+    
 
 ]
