@@ -61,4 +61,88 @@ class LoginApi(APIView):
 
 
 
+class ActivityApi(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self,request):
+        try:
+            activity = Activity.objects.filter(user=request.user)
+            serializer = ActivitySerializer(activity,many=True)
+            return Response({'status':200,'data':serializer.data})
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self,request):
+        try:
+            data = request.data
+            serializer = ActivitySerializer(data=data)
+            if serializer.is_valid():
+                serializer.save(user=request.user)
+                return Response({'status':201,'message':"Activity Created Successfully"},status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self,request):
+        data = request.data
+        try:
+            activity = Activity.objects.filter(id=data.get('id'),user=request.user).first()
+            if not activity:
+                return Response({'message':"Activity not found"},status=status.HTTP_404_NOT_FOUND)
+            activity.delete()
+            return Response({'status':200,'message':"Activity Deleted Successfully"})
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+class FitnessGoalApi(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self,request):
+        try:
+            goals = FitnessGoal.objects.filter(user=request.user)
+            serializer = FitnessGoalSerializer(goals,many=True)
+            return Response({'status':200,'data':serializer.data})
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self,request):
+        try:
+            data = request.data
+            serializer = FitnessGoalSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save(user=request.user)
+                return Response({'status':201,'message':"Fitness Goal Created Successfully"},status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def put(self,request):
+        data = request.data
+        id = data.get('id')
+        try:
+            goal = FitnessGoal.objects.filter(id=id,user=request.user).first()
+            serializer = FitnessGoalSerializer(goal,data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'status':200,'message':"Fitness Goal Updated Successfully"})
+            else:
+                return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        except FitnessGoal.DoesNotExist:
+            return Response({'message':"Fitness Goal not found"},status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self,request):
+        data = request.data
+        try:
+            goal = FitnessGoal.objects.filter(id=data.get('id'),user=request.user).first()
+            if not goal:
+                return Response({'message':"Fitness Goal not found"},status=status.HTTP_404_NOT_FOUND)
+            goal.delete()
+            return Response({'status':200,'message':"Fitness Goal Deleted Successfully"})
+        except Exception as e:
+            return Response({'message':str(e)},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            

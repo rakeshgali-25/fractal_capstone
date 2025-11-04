@@ -1,35 +1,52 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
+
+
+class CustomUser(AbstractUser):
+    weight = models.FloatField(null=True, blank=True)
+    height = models.FloatField(null=True, blank=True)
+    age = models.IntegerField(null=True, blank=True)
+
+
+class Activity(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activities',null=True , blank=True)
+    name = models.CharField(max_length=100, unique=True)  # e.g., Running, Swimming
+
+    def __str__(self):
+        return self.name
+
 
 class FitnessGoal(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fitness_goals')
-    title = models.CharField(max_length=100)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='fitness_goals')
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='goals', null=True , blank=True)
     description = models.TextField(blank=True)
     target_value = models.FloatField()
-    unit = models.CharField(max_length=20)  # e.g., kg, km, minutes
+    unit = models.CharField(max_length=20)  # e.g., km, minutes
     deadline = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.title} ({self.user.username})"
+        return f"{self.user.username} ({self.activity.name if self.activity else 'No Activity'})"
+
+    
     
 class ActivityLog(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_logs')
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activity_logs')
     goal = models.ForeignKey(FitnessGoal, on_delete=models.CASCADE, related_name='activity_logs')
-    activity_type = models.CharField(max_length=100)
-    value = models.FloatField()
+    current_value = models.FloatField()
     unit = models.CharField(max_length=20)
-    notes = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.activity_type} - {self.value} {self.unit} ({self.user.username})"
-
+        return f"{self.goal.activity.name} - {self.current_value} {self.unit} by {self.user.username}"
+    
+    
 class Progress(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='progress_records')
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='progress_records')
     goal = models.ForeignKey(FitnessGoal, on_delete=models.CASCADE, related_name='progress_records')
-    current_value = models.FloatField(default=0.0)
+    value = models.FloatField(default=0.0)
     last_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.goal.title} Progress"
+        return f"{self.user.username} - {self.goal.activity.name if self.goal.activity else 'No Activity'} Progress"
