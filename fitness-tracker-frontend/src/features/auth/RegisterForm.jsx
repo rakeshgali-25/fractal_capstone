@@ -128,12 +128,12 @@ export default function RegisterForm({ onBack }) {
             <Input name="age" type="number" placeholder="Age" value={form.age} onChange={handleChange} />
             {errors.age && <div className="field-error">{errors.age}</div>}
           </div>
-          <div className="col">
+          {/* <div className="col">
             <label className="ui-label">Goal Preference</label>
             <select name="goal" value={form.goal} onChange={handleChange} className="ui-select">
               {GOAL_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
-          </div>
+          </div> */}
         </div>
 
         {serverError && <div className="error server-error">{String(serverError)}</div>}
