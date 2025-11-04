@@ -1,0 +1,48 @@
+/* reuse variables from index.css (you already have them) */
+.register-card {
+  width: 520px;
+  max-width:94vw;
+  padding:30px;
+  border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 18px 48px rgba(6,10,24,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  backdrop-filter: blur(8px) saturate(120%);
+  margin: 0 auto;
+}
+
+/* reuse .ui-input, .ui-input-field, labels from login.css; add some layout helpers */
+.register-form{display:block}
+.row.two-col{display:flex;gap:12px}
+.row.two-col .col{flex:1}
+.ui-select{
+  width:100%;
+  padding:12px 14px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.02);
+  color:var(--text-soft);
+  outline:none;
+  font-size:14px;
+}
+.ui-select:focus{border-color: rgba(46,134,255,0.6);box-shadow: 0 6px 20px rgba(46,134,255,0.06);}
+
+.field-error{color:#ff8b8b;font-size:13px;margin-bottom:8px}
+.server-error{margin-top:8px}
+.success-msg{color:#9bffca;background:rgba(155,255,202,0.04);padding:8px;border-radius:8px;margin:6px 0 10px;font-size:14px}
+
+.form-actions{display:flex;gap:12px;margin-top:14px}
+.ui-button.neutral{
+  background: rgba(255,255,255,0.03);
+  color:var(--text-soft);
+  border: 1px solid rgba(255,255,255,0.04);
+  width:40%;
+}
+.ui-button.primary{width:60%}
+
+/* small screens */
+@media (max-width:600px){
+  .register-card{padding:20px;width:94%}
+  .form-actions{flex-direction:column}
+  .ui-button.neutral, .ui-button.primary{width:100%}
+}
