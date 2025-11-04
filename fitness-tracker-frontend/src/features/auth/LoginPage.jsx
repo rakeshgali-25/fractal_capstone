@@ -20,6 +20,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    console.log(form,"form")
     setBusy(true);
     setError(null);
     const res = await login(form.email, form.password);
@@ -37,15 +38,15 @@ export default function LoginPage() {
       <div className="login-card">
         <h1 className="brand">FITNESS TRACKER APP</h1>
 
-        <div className="tab-row">
+        {/* <div className="tab-row">
           <button className={`tab ${!isRegisterTab ? 'active' : ''}`} onClick={() => setIsRegisterTab(false)}>Login</button>
           <button className={`tab ${isRegisterTab ? 'active' : ''}`} onClick={() => setIsRegisterTab(true)}>Register</button>
-        </div>
+        </div> */}
 
         {!isRegisterTab ? (
           <form className="login-form" onSubmit={handleSubmit}>
-            <Input name="email" placeholder="Email" value={form.email} onChange={handleChange} />
-            <Input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} />
+            <Input name="email" placeholder="Email" value={form.email} onChange={handleChange} autocomplete="off" />
+            <Input autocomplete="off" name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} />
             {error && <div className="error">{typeof error === 'string' ? error : JSON.stringify(error)}</div>}
             <Button type="submit" className="primary">{busy ? 'Signing in...' : 'Login'}</Button>
             <div className="muted">

@@ -96,6 +96,7 @@
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   color:white;
   box-shadow: 0 10px 30px rgba(46,134,255,0.16);
+  width: 100%;
 }
 .muted{font-size:14px;color:var(--muted);text-align:center;margin-top:12px}
 .link{color:var(--accent);cursor:pointer}
