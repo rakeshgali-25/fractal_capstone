@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from .models import *
-
+import re
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -19,6 +19,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         value = value.lower()
         if CustomUser.objects.filter(username=value).exists():
             raise serializers.ValidationError("Username is already taken.")
+        if not re.match(r'^[a-zA-Z]+$', value):
+            raise serializers.ValidationError("Username must contain only letters (no numbers or symbols).")
         return value
         
     def validate_email(self, value):
