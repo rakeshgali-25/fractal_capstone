@@ -64,18 +64,18 @@ export default function RegisterForm({ onBack }) {
     setBusy(true);
     try {
       // adjust endpoint payload according to your backend schema
-      await api.post('/auth/register/', {
-        full_name: form.fullName,
+      await api.post('/register/', {
+        username: form.fullName,
         email: form.email,
         password: form.password,
         weight: form.weight || null,
         height: form.height || null,
         age: form.age || null,
-        goal_preference: form.goal || null
+        // goal_preference: form.goal || null
       });
 
       // on success, call login (so tokens are set and user is loaded)
-      const res = await login(form.email, form.password);
+      const res = await login(form.fullName, form.password);
       if (!res.ok) {
         setServerError(res.error || 'Registration succeeded but login failed. Please login manually.');
       } else {
