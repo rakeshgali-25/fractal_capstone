@@ -10,8 +10,11 @@ class CustomUser(AbstractUser):
 
 
 class Activity(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activities',null=True , blank=True)
-    name = models.CharField(max_length=100, unique=True)  # e.g., Running, Swimming
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activities')
+    name = models.CharField(max_length=100)  # e.g., Running, Swimming
+    
+    class Meta:
+        unique_together = ('user', 'name')
 
     def __str__(self):
         return self.name
@@ -19,7 +22,7 @@ class Activity(models.Model):
 
 class FitnessGoal(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='fitness_goals')
-    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='goals', null=True , blank=True)
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='goals')
     description = models.TextField(blank=True)
     target_value = models.FloatField()
     unit = models.CharField(max_length=20)  # e.g., km, minutes

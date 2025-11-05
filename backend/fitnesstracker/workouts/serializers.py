@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from .models import *
-
+import re
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -19,6 +19,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         value = value.lower()
         if CustomUser.objects.filter(username=value).exists():
             raise serializers.ValidationError("Username is already taken.")
+        if not re.match(r'^[a-zA-Z]+$', value):
+            raise serializers.ValidationError("Username must contain only letters (no numbers or symbols).")
         return value
         
     def validate_email(self, value):
@@ -65,6 +67,11 @@ class ActivitySerializer(serializers.ModelSerializer):
         model = Activity
         fields = ['id', 'name',]
         read_only_fields = ['user'] 
+        
+    def validate_name(self, value):
+        # Capitalize the first letter of the name
+        return value.capitalize()
+        
 
 class FitnessGoalSerializer(serializers.ModelSerializer):
     activity_name =  serializers.CharField(source='activity.name', read_only=True)
@@ -73,3 +80,14 @@ class FitnessGoalSerializer(serializers.ModelSerializer):
         model = FitnessGoal
         fields = ['id', 'activity_name','activity_id', 'description', 'target_value', 'unit', 'deadline', 'created_at']
         read_only_fields = ['user','created_at']
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    goal_description = serializers.CharField(source='goal.description', read_only=True)
+    activity_name = serializers.CharField(source='goal.activity.name', read_only=True)
+    goal_id = serializers.PrimaryKeyRelatedField( source='goal',queryset=FitnessGoal.objects.all(),write_only=True)
+
+    class Meta:
+        model = ActivityLog
+        fields = ['id','goal_id','goal_description','activity_name','current_value','unit','timestamp']
+        read_only_fields = ['timestamp']
