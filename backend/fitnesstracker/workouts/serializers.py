@@ -67,6 +67,11 @@ class ActivitySerializer(serializers.ModelSerializer):
         model = Activity
         fields = ['id', 'name',]
         read_only_fields = ['user'] 
+        
+    def validate_name(self, value):
+        # Capitalize the first letter of the name
+        return value.capitalize()
+        
 
 class FitnessGoalSerializer(serializers.ModelSerializer):
     activity_name =  serializers.CharField(source='activity.name', read_only=True)
@@ -75,3 +80,14 @@ class FitnessGoalSerializer(serializers.ModelSerializer):
         model = FitnessGoal
         fields = ['id', 'activity_name','activity_id', 'description', 'target_value', 'unit', 'deadline', 'created_at']
         read_only_fields = ['user','created_at']
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    goal_description = serializers.CharField(source='goal.description', read_only=True)
+    activity_name = serializers.CharField(source='goal.activity.name', read_only=True)
+    goal_id = serializers.PrimaryKeyRelatedField( source='goal',queryset=FitnessGoal.objects.all(),write_only=True)
+
+    class Meta:
+        model = ActivityLog
+        fields = ['id','goal_id','goal_description','activity_name','current_value','unit','timestamp']
+        read_only_fields = ['timestamp']
