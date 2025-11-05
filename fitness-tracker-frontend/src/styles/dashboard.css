@@ -1,0 +1,35 @@
+.dashboard-container {
+  padding: 10px 0;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.kpi-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  backdrop-filter: blur(10px);
+}
+
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(46,134,255,0.12);
+}
+
+.kpi-card h4 {
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.kpi-card h2 {
+  color: var(--accent);
+  font-size: 28px;
+}
