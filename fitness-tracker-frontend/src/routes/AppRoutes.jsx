@@ -6,7 +6,7 @@ import DashboardPage from "../features/dashboard/DashboardPage";
 import GoalsPage from "../features/goals/GoalsPage";
 import ActivityPage from "../features/activity/ActivityPage";
 import ProfilePage from "../features/profile/ProfilePage";
-import ProtectedRoute from "./ProtectedRoute"; // optional wrapper for auth
+import ProtectedRoute from "./ProtectedRoute"; 
 import ProgressPage from "../features/progress/ProgressPage";
 
 export default function AppRoutes() {

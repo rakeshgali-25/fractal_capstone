@@ -19,7 +19,8 @@ export default function RegisterForm({ onBack }) {
     fullName: '',
     email: '',
     password: '',
-    confirm: '',
+    
+    password2: '',
     weight: '',
     height: '',
     age: '',
@@ -45,7 +46,7 @@ export default function RegisterForm({ onBack }) {
     else if (!/^\S+@\S+\.\S+$/.test(form.email)) err.email = 'Invalid email';
     if (!form.password) err.password = 'Password is required';
     else if (form.password.length < 6) err.password = 'Password must be >= 6 characters';
-    if (form.password !== form.confirm) err.confirm = 'Passwords do not match';
+    if (form.password !== form.password2) err.password2 = 'Passwords do not match';
     if (form.weight && Number(form.weight) <= 0) err.weight = 'Enter valid weight';
     if (form.height && Number(form.height) <= 0) err.height = 'Enter valid height';
     if (form.age && (Number(form.age) <= 0 || Number(form.age) > 120)) err.age = 'Enter valid age';
@@ -67,6 +68,7 @@ export default function RegisterForm({ onBack }) {
       await api.post('/register/', {
         username: form.fullName,
         email: form.email,
+        password2:form.password2,
         password: form.password,
         weight: form.weight || null,
         height: form.height || null,
@@ -109,8 +111,8 @@ export default function RegisterForm({ onBack }) {
         <Input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} />
         {errors.password && <div className="field-error">{errors.password}</div>}
 
-        <Input name="confirm" type="password" placeholder="Confirm Password" value={form.confirm} onChange={handleChange} />
-        {errors.confirm && <div className="field-error">{errors.confirm}</div>}
+        <Input name="password2" type="password" placeholder="Confirm Password" value={form.password2} onChange={handleChange} />
+        {errors.password2 && <div className="field-error">{errors.password2}</div>}
 
         <div className="row two-col">
           <div className="col">
