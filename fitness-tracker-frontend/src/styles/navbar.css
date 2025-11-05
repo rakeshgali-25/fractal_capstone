@@ -1,0 +1,46 @@
+.navbar {
+  height: 64px;
+  backdrop-filter: blur(12px) saturate(120%);
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  color: var(--text-soft);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.navbar .brand {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-name {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.logout-btn {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border: none;
+  color: white;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.logout-btn:hover {
+  opacity: 0.9;
+}
