@@ -12,12 +12,16 @@ export default function Sidebar() {
         <NavLink to="/dashboard" className="menu-item">
           Dashboard
         </NavLink>
+         <NavLink to="/activity" className="menu-item">
+          Activity 
+        </NavLink>
         <NavLink to="/goals" className="menu-item">
           Goals
         </NavLink>
-        <NavLink to="/activity" className="menu-item">
+         <NavLink to="/activitylog" className="menu-item">
           Activity Log
         </NavLink>
+       
         <NavLink to="/progress" className="menu-item">
           Progress
         </NavLink>
