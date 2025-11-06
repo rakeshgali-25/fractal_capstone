@@ -15,7 +15,10 @@ class Activity(models.Model):
     
     class Meta:
         unique_together = ('user', 'name')
-
+    def validate_name(self, value):
+        # Capitalize the first letter of the name
+        return value.capitalize()
+    
     def __str__(self):
         return self.name
 
