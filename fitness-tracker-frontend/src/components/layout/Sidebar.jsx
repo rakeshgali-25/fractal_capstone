@@ -13,7 +13,7 @@ export default function Sidebar() {
           Dashboard
         </NavLink>
          <NavLink to="/activity" className="menu-item">
-          Activity 
+          Add Activity 
         </NavLink>
         <NavLink to="/goals" className="menu-item">
           Goals
