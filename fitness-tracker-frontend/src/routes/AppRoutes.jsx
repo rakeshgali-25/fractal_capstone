@@ -5,6 +5,7 @@ import DashboardLayout from "../components/layout/DashboardLayout";
 import DashboardPage from "../features/dashboard/DashboardPage";
 import GoalsPage from "../features/goals/GoalsPage";
 import ActivityPage from "../features/activity/ActivityPage";
+import ActivityLogPage from "../features/activity/ActivityLogPage";
 import ProfilePage from "../features/profile/ProfilePage";
 import ProtectedRoute from "./ProtectedRoute"; 
 import ProgressPage from "../features/progress/ProgressPage";
@@ -18,8 +19,9 @@ export default function AppRoutes() {
       {/* Protected layout with nested routes */}
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/goals" element={<GoalsPage />} />
         <Route path="/activity" element={<ActivityPage />} />
+        <Route path="/goals" element={<GoalsPage />} />
+        <Route path="/activitylog" element={<ActivityLogPage />} />
         <Route path="/progress" element ={<ProgressPage/>}/>
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
