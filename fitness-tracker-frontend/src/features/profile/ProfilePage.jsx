@@ -1,4 +1,4 @@
-// src/features/profile/ProfilePage.jsx
+
 import React, { useContext, useState } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { AuthContext } from '../../contexts/AuthContext';
@@ -9,10 +9,11 @@ export default function ProfilePage() {
   const { user, setUser } = useContext(AuthContext); // we'll assume AuthContext exposes setUser (see note)
   const [editing, setEditing] = useState(false);
 
+  console.log("user",user)
   // fallback user shape for demo
-  const demoUser = user || { full_name: 'Guest User', email: 'guest@example.com', weight: '', height: '', age: '', avatar_url: '' };
+  const demoUser = user || { username: 'Guest User', email: 'guest@example.com', weight: '', height: '', age: '', avatar_url: '' };
 
-  // handler after save (from form) to update global context/localStorage
+  console.log(demoUser,"demoUser")
   function handleSaved(updated) {
     // update AuthContext and persist
     if (setUser) setUser(updated);
@@ -29,11 +30,11 @@ export default function ProfilePage() {
               {demoUser.avatar_url ? (
                 <img src={demoUser.avatar_url} alt="avatar" className="avatar" />
               ) : (
-                <div className="avatar-placeholder">{(demoUser.full_name || 'U').slice(0,1).toUpperCase()}</div>
+                <div className="avatar-placeholder">{(demoUser.username || 'U').slice(0,1).toUpperCase()}</div>
               )}
             </div>
 
-            <h3 className="profile-name">{demoUser.full_name}</h3>
+            <h3 className="profile-name">{demoUser.username}</h3>
             <div className="profile-email">{demoUser.email}</div>
 
             <div className="profile-stats">
