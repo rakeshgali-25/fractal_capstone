@@ -20,7 +20,7 @@ class Activity(models.Model):
         return value.capitalize()
     
     def __str__(self):
-        return self.name
+        return f"{self.name} {self.user}"
 
 
 class FitnessGoal(models.Model):

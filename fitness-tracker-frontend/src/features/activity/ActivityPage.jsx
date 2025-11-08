@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import Input from "../../components/ui/Input";
 import "../../styles/button.css";
-
+import Button from "../../components/ui/Button";
+import BASE_URL from "../../config/apiConfig";
 
 export default function ActivityPage() {
   const [showModal, setShowModal] = useState(false);
@@ -16,7 +17,7 @@ export default function ActivityPage() {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:7000/add-activity/", {
+      const response = await fetch(`${BASE_URL}/add-activity/`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -42,7 +43,7 @@ export default function ActivityPage() {
       return;
     }
     try {
-      const response = await fetch("http://127.0.0.1:7000/add-activity/", {
+      const response = await fetch(`${BASE_URL}/add-activity/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,7 +72,7 @@ export default function ActivityPage() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch("http://127.0.0.1:7000/add-activity/", {
+      const response = await fetch(`${BASE_URL}/add-activity/`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -108,9 +109,9 @@ export default function ActivityPage() {
           {activityMessage}
         </div>
       )}
-        <button className="menu-item active" onClick={() => setShowModal(true)}>
+        <Button className="gradient-button compact-button" onClick={() => setShowModal(true)}>
           Add Activity
-        </button>
+        </Button>
       </div>
 
       {/* Activity List */}
@@ -121,13 +122,13 @@ export default function ActivityPage() {
           activities.map((activity) => (
             <div key={activity.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #444" }}>
               <span>{activity.name}</span>
-              <button
-                className="gradient-button"
+              <Button
+                className="gradient-button compact-button"
                 style={{ padding: "4px 10px", fontSize: "12px" }}
                 onClick={() => handleDelete(activity.id)}
               >
                 Delete
-              </button>
+              </Button>
             </div>
           ))
         )}
@@ -144,26 +145,25 @@ export default function ActivityPage() {
               </div>
             )}
             <Input
-              label="Activity Name"
               name="activityName"
               value={activityName}
               onChange={(e) => setActivityName(e.target.value)}
               placeholder="Enter activity name"
             />
-            <div style={styles.buttonGroup}>
-              <button className="gradient-button" onClick={handleSubmit}>
-                Submit
-              </button>
-              <button
-                className="gradient-button"
-                onClick={() => {
-                  setShowModal(false);
-                  setErrorMessage("");
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+        <div style={styles.buttonGroup}>
+          <Button className="gradient-button" onClick={handleSubmit}>
+            Submit
+          </Button>
+          <Button
+            className="gradient-button"
+            onClick={() => {
+              setShowModal(false);
+              setErrorMessage("");
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
           </div>
         </div>
       )}
