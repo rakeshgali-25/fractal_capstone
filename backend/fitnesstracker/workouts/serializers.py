@@ -51,13 +51,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
     
     
-class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=True)
-    password = serializers.CharField(write_only=True, required=True)
+# class LoginSerializer(serializers.Serializer):
+#     username = serializers.CharField(required=True)
+#     password = serializers.CharField(write_only=True, required=True)
     
+#     def validate(self, data):
+#         if not data['username']:
+#             raise serializers.ValidationError("Username is required.")
+#         if not data['password']:
+#             raise serializers.ValidationError("Password is required.")
+#         return data
+
+class LoginSerializer(serializers.Serializer):
+    identifier = serializers.CharField(required=True)  # can be username or email
+    password = serializers.CharField(write_only=True, required=True)
+
     def validate(self, data):
-        if not data['username']:
-            raise serializers.ValidationError("Username is required.")
+        if not data['identifier']:
+            raise serializers.ValidationError("Username or email is required.")
         if not data['password']:
             raise serializers.ValidationError("Password is required.")
         return data
@@ -75,7 +86,14 @@ class ActivitySerializer(serializers.ModelSerializer):
 
 class FitnessGoalSerializer(serializers.ModelSerializer):
     activity_name =  serializers.CharField(source='activity.name', read_only=True)
-    activity_id = serializers.PrimaryKeyRelatedField(source='activity', queryset=Activity.objects.all(), write_only=True, required=False, allow_null=True)
+    activity_id = serializers.PrimaryKeyRelatedField(source='activity', queryset=Activity.objects.all(), required=False, allow_null=True)
+    
+    
+    def validate_unit(self, value):
+        if any(char.isdigit() for char in value):
+            raise serializers.ValidationError("Unit must not contain numbers.")
+        return value
+    
     class Meta:
         model = FitnessGoal
         fields = ['id', 'activity_name','activity_id', 'description', 'target_value', 'unit', 'deadline', 'created_at']
@@ -85,7 +103,12 @@ class FitnessGoalSerializer(serializers.ModelSerializer):
 class ActivityLogSerializer(serializers.ModelSerializer):
     goal_description = serializers.CharField(source='goal.description', read_only=True)
     activity_name = serializers.CharField(source='goal.activity.name', read_only=True)
-    goal_id = serializers.PrimaryKeyRelatedField( source='goal',queryset=FitnessGoal.objects.all(),write_only=True)
+    goal_id = serializers.PrimaryKeyRelatedField( source='goal',queryset=FitnessGoal.objects.all())
+    
+    def validate_unit(self, value):
+        if any(char.isdigit() for char in value):
+            raise serializers.ValidationError("Unit must not contain numbers.")
+        return value
 
     class Meta:
         model = ActivityLog
