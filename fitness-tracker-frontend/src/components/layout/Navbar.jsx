@@ -13,7 +13,7 @@ export default function Navbar() {
 
       <div className="navbar-right">
         <div className="user-info">
-          <span className="user-name">{user?.full_name || user?.email}</span>
+          <span className="user-name">{user?.username || user?.email}</span>
           <button className="logout-btn" onClick={logout}>
             Logout
           </button>

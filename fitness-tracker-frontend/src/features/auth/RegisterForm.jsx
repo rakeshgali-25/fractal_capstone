@@ -64,7 +64,6 @@ export default function RegisterForm({ onBack }) {
 
     setBusy(true);
     try {
-      // adjust endpoint payload according to your backend schema
       await api.post('/register/', {
         username: form.fullName,
         email: form.email,
@@ -73,7 +72,6 @@ export default function RegisterForm({ onBack }) {
         weight: form.weight || null,
         height: form.height || null,
         age: form.age || null,
-        // goal_preference: form.goal || null
       });
 
       // on success, call login (so tokens are set and user is loaded)
@@ -82,6 +80,7 @@ export default function RegisterForm({ onBack }) {
         setServerError(res.error || 'Registration succeeded but login failed. Please login manually.');
       } else {
         setSuccessMsg('Registration successful! Redirecting...');
+        onBack()
       }
 
     } catch (err) {
