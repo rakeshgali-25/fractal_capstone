@@ -35,16 +35,22 @@ class RegisterApi(APIView):
 
 class LoginApi(APIView):
     def post(self,request):
-        try:
-            data = request.data
-        except:
-            return Response({'message':"Invalid or missing parameters"},status=status.HTTP_400_BAD_REQUEST)
-        
-        if not data:
-            return Response({'message':"No data provided"},status=status.HTTP_400_BAD_REQUEST)
-        serializer = LoginSerializer(data=data)
+        serializer = LoginSerializer(data=request.data)
+
         if serializer.is_valid():
-            user = authenticate(username=serializer.validated_data['username'].lower(),password=serializer.validated_data['password'])
+            identifier = serializer.validated_data['identifier'].lower()
+            password = serializer.validated_data['password']
+
+            # Try to find user by email or username
+            user = CustomUser.objects.filter(email__iexact=identifier).first()
+            if not user:
+                user = CustomUser.objects.filter(username__iexact=identifier).first()
+
+            if not user:
+                return Response({'message': "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Authenticate using username
+            user = authenticate(username=user.username, password=password)
             if user:
                 refresh = RefreshToken.for_user(user)
 
@@ -58,6 +64,32 @@ class LoginApi(APIView):
                 return Response({'message':"Invalid Credentials"},status=status.HTTP_401_UNAUTHORIZED)
         else:
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+# class LoginApi(APIView):
+#     def post(self,request):
+#         try:
+#             data = request.data
+#         except:
+#             return Response({'message':"Invalid or missing parameters"},status=status.HTTP_400_BAD_REQUEST)
+        
+#         if not data:
+#             return Response({'message':"No data provided"},status=status.HTTP_400_BAD_REQUEST)
+#         serializer = LoginSerializer(data=data)
+#         if serializer.is_valid():
+#             user = authenticate(username=serializer.validated_data['username'].lower(),password=serializer.validated_data['password'])
+#             if user:
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'status':status.HTTP_200_OK,
+#                     'refresh': str(refresh),
+#                     'access': str(refresh.access_token),
+#                     'message':"Login Successful"
+#                     })
+#             else:
+#                 return Response({'message':"Invalid Credentials"},status=status.HTTP_401_UNAUTHORIZED)
+#         else:
+#             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
 
 
