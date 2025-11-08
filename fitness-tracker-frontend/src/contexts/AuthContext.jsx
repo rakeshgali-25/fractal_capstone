@@ -15,16 +15,16 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  async function login(email, password) {
+  async function login(username, password) {
     // call API - expects { access, refresh, user } or adjust per your backend
     try {
-    const res = await api.post('/login/', { "username":email, password });
+    const res = await api.post('/login/', { "username":username, password });
       // customize based on backend response shape:
       const { access, refresh, user: userData } = res.data;
       localStorage.setItem('ft_access', access);
       localStorage.setItem('ft_refresh', refresh);
-      localStorage.setItem('ft_user', JSON.stringify(userData || { email }));
-      setUser(userData || { email });
+      localStorage.setItem('ft_user', JSON.stringify(userData || { username }));
+      setUser(userData || { username });
       return { ok: true };
     } catch (err) {
       console.error('Login failed', err);
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user,setUser, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
