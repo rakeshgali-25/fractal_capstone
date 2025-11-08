@@ -10,6 +10,6 @@ urlpatterns = [
     path('fitness-goal/',FitnessGoalApi.as_view()),
     path('add-activity/',ActivityApi.as_view()),
     path('activityLog/',ActivityLogApi.as_view()),
-    
+    path('profile/', ProfileView.as_view(), name='profile'),    
 
 ]
