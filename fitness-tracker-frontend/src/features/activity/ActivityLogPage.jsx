@@ -1,3 +1,4 @@
+// src/pages/activity/ActivityLog.jsx
 import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 import "../../styles/activitylog.css";
@@ -8,110 +9,111 @@ import "../../styles/activitylog.css";
   - Loads logs from /api/activity-logs/
   - Create: POST { activity_id, duration, date }
   - Delete: DELETE /api/activity-logs/:id/
-  - Edit: simple flow — delete existing log and create a new one (keeps backend simple)
+  - Edit: delete old log + create new one
 */
 
-const ActivityLog = () => {
-  const [activities, setActivities] = useState([]); // {id, name}
-  const [logs, setLogs] = useState([]); // logs from backend
+const emptyForm = {
+  activityId: "",
+  duration: "",
+  date: new Date().toISOString().slice(0, 10),
+};
+
+export default function ActivityLog() {
+  const [activities, setActivities] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({
-    activityId: "",
-    duration: "",
-    date: new Date().toISOString().slice(0, 10),
-  });
-
-  const [editing, setEditing] = useState(null); // editing holds the log object if in edit mode
+  const [form, setForm] = useState(emptyForm);
+  const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState("");
 
-  // --- load activities and logs ---
+  // load activities
   const loadActivities = async () => {
     try {
       const res = await api.get("/api/activities/");
       setActivities(res.data || []);
     } catch (err) {
-      console.error("Failed to load activities", err);
-      // keep silent, you can show toast
+      console.error("Load activities failed:", err);
+      setActivities([]);
     }
   };
 
+  // load logs
   const loadLogs = async () => {
     try {
       const res = await api.get("/api/activity-logs/");
-      // map backend shape to UI shape
       const mapped = (res.data || []).map((l) => ({
         id: l.id,
-        activityName: l.activity_name || l.goal_title || (l.goal && l.goal.activity_name) || "Activity",
-        duration: l.duration_min ?? 0,
-        calories: l.current_value ?? 0,
+        activityName: l.activity_name || l.goal_title || "Activity",
+        duration: l.duration_minutes ?? l.duration ?? 0,
+        calories: l.calories ?? null,
         date: l.timestamp ? l.timestamp.slice(0, 10) : new Date().toISOString().slice(0, 10),
-        raw: l, // keep original if needed
+        raw: l,
       }));
       setLogs(mapped);
     } catch (err) {
-      console.error("Failed to load logs", err);
+      console.error("Load logs failed:", err);
+      setLogs([]);
     }
   };
 
   useEffect(() => {
-    setLoading(true);
+    let mounted = true;
     (async () => {
+      if (!mounted) return;
+      setLoading(true);
       await loadActivities();
       await loadLogs();
       setLoading(false);
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // --- helpers ---
-  const resetForm = () => setForm({ activityId: "", duration: "", date: new Date().toISOString().slice(0, 10) });
+  const resetForm = () => setForm({ ...emptyForm });
 
-  const showTempMsg = (t) => {
-    setMsg(t);
-    setTimeout(() => setMsg(""), 2500);
+  const showTempMsg = (text) => {
+    setMsg(text);
+    setTimeout(() => setMsg(""), 3000);
   };
 
-  // --- create or update (we implement update as delete + create to keep backend contract simple) ---
+  // create or update
   const handleAddOrUpdate = async (e) => {
     e.preventDefault();
-
     if (!form.activityId || !form.duration) {
-      showTempMsg("Select activity and enter duration.");
+      showTempMsg("Please select activity and enter duration.");
       return;
     }
 
     setSaving(true);
     try {
-      // if editing -> delete old log first
+      // if editing: delete the original first
       if (editing) {
         try {
           await api.delete(`/api/activity-logs/${editing.id}/`);
         } catch (err) {
-          // if delete fails, still attempt to create (or bail). We'll bail with an error.
           console.error("Failed to delete before update:", err);
-          throw new Error("Could not update log (delete failed).");
+          throw new Error("Could not update log (failed to delete existing).");
         }
       }
 
-      // create new log
       const payload = {
         activity_id: Number(form.activityId),
-        duration: Number(form.duration),
+        duration: Number(form.duration), // backend accepts `duration` or `duration_minutes`
         date: form.date,
       };
 
-      // eslint-disable-next-line no-unused-vars
-      const res = await api.post("/api/activity-logs/", payload);
-      // reload logs — simple and consistent
+      await api.post("/api/activity-logs/", payload);
       await loadLogs();
 
+      showTempMsg(editing ? "Activity updated." : "Activity logged.");
       resetForm();
       setEditing(null);
-      showTempMsg(editing ? "Activity updated." : "Activity logged.");
     } catch (err) {
       console.error("Save failed:", err);
-      const detail = err.response?.data || err.message;
+      const detail = err?.response?.data || err.message;
       showTempMsg("Save failed: " + (typeof detail === "string" ? detail : JSON.stringify(detail)));
     } finally {
       setSaving(false);
@@ -119,11 +121,11 @@ const ActivityLog = () => {
   };
 
   const handleEdit = (log) => {
-    // find matching activity id for this activity name (best-effort)
-    const activity = activities.find((a) => a.name.toLowerCase() === log.activityName.toLowerCase());
+    // find matching activity by name (best effort)
+    const match = activities.find((a) => a.name && a.name.toLowerCase() === log.activityName.toLowerCase());
     setEditing(log);
     setForm({
-      activityId: activity ? activity.id : "",
+      activityId: match ? match.id : "",
       duration: log.duration,
       date: log.date,
     });
@@ -142,12 +144,9 @@ const ActivityLog = () => {
     }
   };
 
-  // --- UI render helpers ---
   const activityOptions = activities.length
     ? activities
-    : [
-        { id: "none", name: "No activities found (seed via admin)" },
-      ];
+    : [{ id: "", name: "No activities available" }];
 
   return (
     <div className="activity-log-page">
@@ -164,6 +163,7 @@ const ActivityLog = () => {
               value={form.activityId}
               onChange={(e) => setForm({ ...form, activityId: e.target.value })}
               required
+              disabled={saving}
             >
               <option value="">-- Select activity --</option>
               {activityOptions.map((a) => (
@@ -183,6 +183,7 @@ const ActivityLog = () => {
               onChange={(e) => setForm({ ...form, duration: e.target.value })}
               placeholder="e.g. 30"
               required
+              disabled={saving}
             />
           </label>
 
@@ -192,6 +193,7 @@ const ActivityLog = () => {
               type="date"
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
+              disabled={saving}
             />
           </label>
         </div>
@@ -239,8 +241,12 @@ const ActivityLog = () => {
               <div className="col">{log.duration}</div>
               <div className="col">{log.calories ?? "—"}</div>
               <div className="col actions-col">
-                <button className="small-btn" onClick={() => handleEdit(log)}>Edit</button>
-                <button className="small-btn danger" onClick={() => handleDelete(log.id)}>Delete</button>
+                <button className="small-btn" onClick={() => handleEdit(log)} disabled={saving}>
+                  Edit
+                </button>
+                <button className="small-btn danger" onClick={() => handleDelete(log.id)} disabled={saving}>
+                  Delete
+                </button>
               </div>
             </div>
           ))}
@@ -248,6 +254,4 @@ const ActivityLog = () => {
       </div>
     </div>
   );
-};
-
-export default ActivityLog;
+}

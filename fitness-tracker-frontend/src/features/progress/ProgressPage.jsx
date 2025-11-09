@@ -1,41 +1,67 @@
 // ProgressPage.jsx
-import React, { useState, useMemo } from 'react';
-import DashboardLayout from '../../components/layout/DashboardLayout';
-import GoalProgressItem from './GoalProgressItem';
-import ProgressChart from './ProgressChart';
-import '../../styles/progress.css';
+import React, { useEffect, useState, useMemo } from "react";
+import api from "../../services/api";
+import "../../styles/progress.css";
 
-/* ---------- Mock data (replace with API later) ---------- */
-const mockGoals = [
-  { id: 1, title: '10,000 steps daily', metric: 'steps/day', target: 10000, current: 7300 },
-  { id: 2, title: 'Burn 3500 kcal weekly', metric: 'kcal/week', target: 3500, current: 2400 },
-  { id: 3, title: 'Run 20 km / week', metric: 'km/week', target: 20, current: 12.4 },
-  { id: 4, title: 'Do yoga 3x week', metric: 'sessions/week', target: 3, current: 2 }
-];
+// Small presentational item (keeps markup consistent with your UI)
+function GoalProgressItem({ goal }) {
+  const pct = goal.progress_percent ?? Math.round(((goal.current_value || 0) / Math.max(1, goal.target_value || 1)) * 100);
+  return (
+    <div className="goal-item">
+      <div className="goal-left">
+        <h4 className="goal-title">{goal.title}</h4>
+        <div className="goal-sub muted">{goal.unit ? `${goal.unit} • Target: ${goal.target_value}` : `Target: ${goal.target_value}`}</div>
+      </div>
 
-/* mock historical progress per goal (weekly)
-   shape: { id, name, values: [week1, week2, ...] }
-*/
-const mockHistory = [
-  { id:1, name: '10k steps', values: [7000, 8200, 9000, 7300], color: '#7C4DFF' },
-  { id:2, name: 'Calories', values: [3100, 2800, 2600, 2400], color: '#2E86FF' },
-  { id:3, name: 'Run km', values: [8, 15, 18, 12.4], color: '#00C2A8' },
-  { id:4, name: 'Yoga sessions', values: [1,2,3,2], color: '#FFB86B' }
-];
-
-const labels = ['Week -3','Week -2','Week -1','This Week'];
+      <div className="goal-right">
+        <div className="progress-bar-outer" aria-hidden>
+          <div className="progress-bar-inner" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="goal-meta">
+          <div className="goal-pct">{pct}%</div>
+          <div className="goal-numbers muted">{(goal.current_value ?? 0)} / {goal.target_value}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProgressPage() {
-  const [selectedGoal, setSelectedGoal] = useState(null);
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // chart series: show all goals history
-  const series = useMemo(() => mockHistory.map(h => ({ name: h.name, values: h.values, color: h.color })), []);
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        // Expecting an array with each item containing:
+        // { id, title, target_value, unit, current_value, progress_percent, frequency, ... }
+        const res = await api.get("/api/progress/");
+        if (!mounted) return;
+        setGoals(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Failed to load progress:", err);
+        setError("Could not load progress. Try reloading.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, []);
 
-  // simple aggregate: percent completion for UI
-  const overallPct = Math.round((mockGoals.reduce((s,g)=>s + (g.current / Math.max(1,g.target)), 0) / mockGoals.length) * 100);
+  // overall percentage = average of each goal's percent (guard against empty)
+  const overallPct = useMemo(() => {
+    if (!goals || goals.length === 0) return 0;
+    const sum = goals.reduce((acc, g) => acc + (Number(g.progress_percent || 0)), 0);
+    return Math.round(sum / goals.length);
+  }, [goals]);
 
   return (
-    <>
+    <div className="progress-page">
       <div className="progress-top">
         <div>
           <h2>Progress</h2>
@@ -51,43 +77,25 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      <div className="progress-body">
+      <div className="progress-body no-chart"> {/* no-chart flag can help target CSS */}
         <div className="left-column">
           <div className="card">
             <div className="card-head">Your goals</div>
+
+            {loading && <div className="loading muted">Loading goals…</div>}
+            {error && <div className="error muted">{error}</div>}
+
+            {!loading && goals.length === 0 && <div className="empty muted">You have no goals yet.</div>}
+
             <div className="goals-list">
-              {mockGoals.map(g => (
-                <GoalProgressItem key={g.id} goal={g} onSelect={setSelectedGoal} />
+              {goals.map((g) => (
+                <GoalProgressItem key={g.id} goal={g} />
               ))}
             </div>
-          </div>
-
-          <div className="card">
-            <div className="card-head">Goal activity</div>
-            {/* if user selected a goal, show focused chart; else show combined */}
-            <ProgressChart
-              series={selectedGoal ? series.filter(s => s.id === selectedGoal.id || s.name.toLowerCase().includes(selectedGoal.title.split(' ')[0].toLowerCase())) : series}
-              labels={labels}
-            />
           </div>
         </div>
 
         <div className="right-column">
-          <div className="card">
-            <div className="card-head">Goal details</div>
-            {selectedGoal ? (
-              <div className="goal-detail">
-                <h3>{selectedGoal.title}</h3>
-                <div className="muted">{selectedGoal.metric}</div>
-                <p>Target: <b>{selectedGoal.target}</b></p>
-                <p>Progress: <b>{selectedGoal.current}</b></p>
-                <button className="ui-button primary" style={{ width: '100%' }}>Add progress</button>
-              </div>
-            ) : (
-              <div className="muted">Select a goal to see details and add progress.</div>
-            )}
-          </div>
-
           <div className="card">
             <div className="card-head">Tips</div>
             <ul className="tips">
@@ -98,6 +106,6 @@ export default function ProgressPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

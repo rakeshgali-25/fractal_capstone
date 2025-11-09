@@ -1,14 +1,15 @@
 # tracker_core/serializers.py
+from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework import serializers
 from django.db import transaction
+from rest_framework import serializers
 
 from .models import Activity, FitnessGoal, ActivityLog
 
 User = get_user_model()
 
-# small MET table for calorie estimation
+# METs for estimation
 ACTIVITY_MET = {
     "walking": 3.5,
     "running": 9.8,
@@ -18,6 +19,15 @@ ACTIVITY_MET = {
     "gym workout": 6.0,
     "default": 4.0,
 }
+
+DEFAULT_STRIDE_M = 0.78
+
+
+def steps_to_km(steps: int, stride_m: float = DEFAULT_STRIDE_M) -> float:
+    try:
+        return round((int(steps) * float(stride_m)) / 1000.0, 3)
+    except Exception:
+        return 0.0
 
 
 class ActivitySerializer(serializers.ModelSerializer):
@@ -42,18 +52,22 @@ class FitnessGoalSerializer(serializers.ModelSerializer):
             "frequency",
             "deadline",
             "created_at",
+            "current_value",
+            "progress_percent",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["created_at", "current_value", "progress_percent"]
 
     def validate_target_value(self, value):
-        if value <= 0:
+        if value is None or value <= 0:
             raise serializers.ValidationError("target_value must be greater than 0.")
         return value
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
+    # activity info is derived via the linked goal (goal -> activity)
     goal_title = serializers.CharField(source="goal.title", read_only=True)
-    activity_name = serializers.CharField(source="goal.activity.name", read_only=True)
+    activity_name = serializers.SerializerMethodField()
+    activity_id = serializers.SerializerMethodField()
 
     class Meta:
         model = ActivityLog
@@ -61,47 +75,126 @@ class ActivityLogSerializer(serializers.ModelSerializer):
             "id",
             "goal",
             "goal_title",
+            "activity_id",
             "activity_name",
-            "current_value",
-            "unit",
-            "duration_min",
+            "duration_minutes",
+            "distance_km",
+            "steps",
+            "calories",
+            "count",
             "timestamp",
         ]
-        read_only_fields = ["id", "goal_title", "activity_name", "current_value", "unit", "timestamp"]
+        read_only_fields = ["id", "goal_title", "activity_name", "activity_id", "timestamp"]
+
+    def get_activity_name(self, obj):
+        try:
+            return obj.goal.activity.name if obj.goal and obj.goal.activity else None
+        except Exception:
+            return None
+
+    def get_activity_id(self, obj):
+        try:
+            return obj.goal.activity.id if obj.goal and obj.goal.activity else None
+        except Exception:
+            return None
 
 
 class ActivityLogCreateSerializer(serializers.Serializer):
-    # client sends activity_id (predefined activity), duration (minutes), optional date
-    activity_id = serializers.IntegerField(required=True)
-    duration = serializers.IntegerField(required=True, min_value=1)
+    """
+    Robust create serializer:
+    Accepts either:
+      - activity_id (preferred) OR goal (existing goal id)
+      - duration or duration_minutes (both accepted)
+      - distance_km, steps, count, calories, date (optional)
+    It will:
+      - resolve activity from activity_id or goal
+      - normalize duration -> duration_minutes
+      - compute distance from steps if needed
+      - estimate calories if not provided (using duration_minutes)
+    """
+    activity_id = serializers.IntegerField(required=False)
+    goal = serializers.IntegerField(required=False)
+    # accept either name
+    duration = serializers.IntegerField(required=False, min_value=1)
+    duration_minutes = serializers.IntegerField(required=False, min_value=1)
+    distance_km = serializers.FloatField(required=False)
+    steps = serializers.IntegerField(required=False)
+    count = serializers.IntegerField(required=False)
+    calories = serializers.FloatField(required=False)
     date = serializers.DateField(required=False)
 
-    def validate_activity_id(self, value):
-        if not Activity.objects.filter(id=value).exists():
-            raise serializers.ValidationError("Activity not found.")
-        return value
+    def validate(self, data):
+        # require at least activity_id or goal
+        if not data.get('activity_id') and not data.get('goal'):
+            raise serializers.ValidationError("Provide activity_id or goal id.")
+        # normalize duration presence
+        if not data.get('duration') and not data.get('duration_minutes') and not data.get('distance_km') and not data.get('steps') and not data.get('calories'):
+            raise serializers.ValidationError("Provide at least one metric: duration/distance/steps/calories.")
+        return data
 
-    def _estimate_calories(self, user: User, activity_name: str, duration_minutes: int) -> float:
+    def _get_activity(self, user, validated_data):
+        # prefer activity_id
+        act = None
+        if validated_data.get('activity_id'):
+            act = Activity.objects.filter(id=validated_data['activity_id']).first()
+        if not act and validated_data.get('goal'):
+            g = FitnessGoal.objects.filter(id=validated_data['goal'], user=user).first()
+            act = g.activity if g else None
+        return act
+
+    def _estimate_calories(self, user, activity_name: str, duration_minutes: int) -> float:
         met = ACTIVITY_MET.get(activity_name.lower(), ACTIVITY_MET["default"])
         weight = getattr(user, "weight", None) or 70.0
-        hours = duration_minutes / 60.0
-        calories = met * weight * hours
-        return round(calories, 1)
+        hours = (duration_minutes or 0) / 60.0
+        return round(float(met * weight * hours), 1)
 
     def create(self, validated_data):
         request = self.context.get("request")
-        user = request.user
+        user = getattr(request, "user", None)
+        if user is None:
+            raise serializers.ValidationError("Authentication required.")
 
-        activity_id = validated_data["activity_id"]
-        duration = validated_data["duration"]
-        date = validated_data.get("date")
+        # Resolve activity
+        activity = self._get_activity(user, validated_data)
+        if not activity:
+            raise serializers.ValidationError("Activity not found. Provide valid activity_id or goal.")
 
-        activity = Activity.objects.get(id=activity_id)
+        # Normalize duration
+        duration = validated_data.get('duration') or validated_data.get('duration_minutes')
+        distance_km = validated_data.get('distance_km')
+        steps = validated_data.get('steps')
+        count = validated_data.get('count')
+        provided_calories = validated_data.get('calories')
+        date_val = validated_data.get('date')
 
-        # find existing goal for the user+activity, else create a minimal placeholder goal
-        goal = FitnessGoal.objects.filter(user=user, activity=activity).first()
-        if not goal:
-            goal = FitnessGoal.objects.create(
+        # timestamp
+        if date_val:
+            ts = timezone.make_aware(datetime.combine(date_val, datetime.min.time()))
+        else:
+            ts = timezone.now()
+
+        # derive missing fields
+        if steps and not distance_km:
+            distance_km = steps_to_km(steps)
+
+        # If calories missing, prefer to estimate from duration -> duration_minutes
+        calories = provided_calories
+        if calories in (None, ""):
+            if duration:
+                calories = self._estimate_calories(user, activity.name, duration)
+            elif distance_km:
+                # optional: rough estimation if you have distance + average speed?
+                # fallback: leave calories None
+                calories = None
+
+        # attach or create a goal for the user+activity if goal not provided
+        goal_obj = None
+        if validated_data.get('goal'):
+            goal_obj = FitnessGoal.objects.filter(id=validated_data['goal'], user=user).first()
+        if not goal_obj:
+            goal_obj = FitnessGoal.objects.filter(user=user, activity=activity).first()
+        if not goal_obj:
+            goal_obj = FitnessGoal.objects.create(
                 user=user,
                 title=f"{activity.name} (auto)",
                 activity=activity,
@@ -110,23 +203,46 @@ class ActivityLogCreateSerializer(serializers.Serializer):
                 unit="kcal",
             )
 
-        calories = self._estimate_calories(user, activity.name, duration)
-
+        # save the log
         with transaction.atomic():
-            # choose timestamp: provided date (midnight) or now
-            if date:
-                dt = timezone.datetime.combine(date, timezone.datetime.min.time())
-                ts = timezone.make_aware(dt)
-            else:
-                ts = timezone.now()
-
             log = ActivityLog.objects.create(
                 user=user,
-                goal=goal,
-                current_value=calories,
-                unit="kcal",
-                duration_min=duration,
+                goal=goal_obj,
+                duration_minutes=duration,
+                distance_km=distance_km,
+                steps=steps,
+                count=count,
+                calories=calories,
                 timestamp=ts,
             )
 
+            # recalc all goals for this user+activity (daily/weekly/monthly)
+            goals = FitnessGoal.objects.filter(user=user, activity=activity)
+            log_date = ts.date()
+            for g in goals:
+                try:
+                    g.recalculate_progress(as_of_date=log_date)
+                except Exception:
+                    pass
+
         return log
+
+
+class ProgressGoalSerializer(serializers.ModelSerializer):
+    activity_name = serializers.CharField(source="activity.name", read_only=True)
+
+    class Meta:
+        model = FitnessGoal
+        fields = [
+            "id",
+            "title",
+            "activity",
+            "activity_name",
+            "unit",
+            "target_value",
+            "frequency",
+            "deadline",
+            "current_value",
+            "progress_percent",
+        ]
+        read_only_fields = ["id", "activity_name", "current_value", "progress_percent"]
