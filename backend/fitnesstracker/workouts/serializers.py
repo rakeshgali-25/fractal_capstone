@@ -114,3 +114,10 @@ class ActivityLogSerializer(serializers.ModelSerializer):
         model = ActivityLog
         fields = ['id','goal_id','goal_description','activity_name','current_value','unit','timestamp']
         read_only_fields = ['timestamp']
+
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'weight', 'height', 'age']
