@@ -142,11 +142,36 @@ class ActivityLogCreateSerializer(serializers.Serializer):
             act = g.activity if g else None
         return act
 
-    def _estimate_calories(self, user, activity_name: str, duration_minutes: int) -> float:
+    def _estimate_calories(self, user, activity_name: str, duration_minutes=None, distance_km=None, steps=None) -> float:
+        """
+        Estimate calories using best available metric:
+        - Prefer duration
+        - Else use distance (for walking/running)
+        - Else use steps (converted to km)
+        """
         met = ACTIVITY_MET.get(activity_name.lower(), ACTIVITY_MET["default"])
         weight = getattr(user, "weight", None) or 70.0
-        hours = (duration_minutes or 0) / 60.0
-        return round(float(met * weight * hours), 1)
+
+        # Duration-based
+        if duration_minutes:
+            hours = duration_minutes / 60.0
+            return round(float(met * weight * hours), 1)
+
+        # Distance-based (rough: assume avg speed ~ 5 km/h for walking, 8 km/h for running)
+        if distance_km:
+            avg_speed_kmh = 5 if "walk" in activity_name.lower() else 8
+            hours = distance_km / avg_speed_kmh
+            return round(float(met * weight * hours), 1)
+
+        # Steps-based → convert to km
+        if steps:
+            distance_km = steps_to_km(steps)
+            avg_speed_kmh = 5
+            hours = distance_km / avg_speed_kmh
+            return round(float(met * weight * hours), 1)
+
+        return 0.0
+
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -180,12 +205,13 @@ class ActivityLogCreateSerializer(serializers.Serializer):
         # If calories missing, prefer to estimate from duration -> duration_minutes
         calories = provided_calories
         if calories in (None, ""):
-            if duration:
-                calories = self._estimate_calories(user, activity.name, duration)
-            elif distance_km:
-                # optional: rough estimation if you have distance + average speed?
-                # fallback: leave calories None
-                calories = None
+            calories = self._estimate_calories(
+                user,
+                activity.name,
+                duration_minutes=duration,
+                distance_km=distance_km,
+                steps=steps,
+            )
 
         # attach or create a goal for the user+activity if goal not provided
         goal_obj = None

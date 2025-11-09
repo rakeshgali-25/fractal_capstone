@@ -1,3 +1,4 @@
+// src/features/goals/GoalsPage.jsx
 import React, { useEffect, useState } from "react";
 import api from "../../services/api"; // your axios helper
 import "../../styles/goals.css";
@@ -16,6 +17,17 @@ const GoalsPage = () => {
     unit: "",
     frequency: "weekly",
   });
+
+  // local mapping fallback (used when backend doesn't provide unit)
+  const UNIT_MAP = {
+    Walking: "steps",
+    Running: "km",
+    Cycling: "km",
+    Yoga: "min",
+    "Gym Workout": "min",
+    Swimming: "min",
+    Other: "kcal",
+  };
 
   // Load goals + activities
   useEffect(() => {
@@ -43,6 +55,19 @@ const GoalsPage = () => {
     return a ? a.name : "Goal";
   };
 
+  const getActivityDefaultUnit = (activityIdOrObj) => {
+    // Accept either id or object
+    let act = null;
+    if (!activityIdOrObj) return "";
+    if (typeof activityIdOrObj === "object") act = activityIdOrObj;
+    else act = activities.find((x) => Number(x.id) === Number(activityIdOrObj));
+    if (!act) return "";
+    // prefer backend-provided unit if present
+    if (act.unit) return act.unit;
+    // fallback to our local map based on activity name
+    return UNIT_MAP[act.name] || "";
+  };
+
   const groupGoals = (type) =>
     goals.filter((g) => (g.frequency || "").toLowerCase() === type);
 
@@ -55,10 +80,12 @@ const GoalsPage = () => {
 
   const openEditModal = (goal) => {
     setEditingGoal(goal);
+    // when editing, ensure unit reflects activity (prefer server value on goal)
+    const unit = goal.unit || getActivityDefaultUnit(goal.activity);
     setForm({
       activity: goal.activity ?? "",
       target: goal.target_value ?? "",
-      unit: goal.unit ?? "",
+      unit: unit ?? "",
       frequency: goal.frequency ?? "weekly",
     });
     setShowModal(true);
@@ -114,6 +141,12 @@ const GoalsPage = () => {
       const server = err.response?.data ? JSON.stringify(err.response.data) : err.message;
       alert("Could not save goal. " + server);
     }
+  };
+
+  // when user selects activity in modal, auto-fill unit (read-only)
+  const handleActivitySelect = (activityId) => {
+    const unit = getActivityDefaultUnit(activityId);
+    setForm((prev) => ({ ...prev, activity: activityId, unit }));
   };
 
   // --- render helpers ---
@@ -186,7 +219,10 @@ const GoalsPage = () => {
 
             <form onSubmit={handleSave}>
               <label>Activity</label>
-              <select value={form.activity} onChange={(e) => setForm({ ...form, activity: e.target.value })}>
+              <select
+                value={form.activity}
+                onChange={(e) => handleActivitySelect(e.target.value)}
+              >
                 <option value="">Select Activity</option>
                 {activities.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -203,12 +239,13 @@ const GoalsPage = () => {
                 onChange={(e) => setForm({ ...form, target: e.target.value })}
               />
 
-              <label>Unit</label>
+              <label>Unit (auto)</label>
               <input
                 type="text"
-                placeholder="e.g. km, kcal"
+                placeholder="Auto-filled"
                 value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                readOnly
+                style={{ background: "#0f1720", cursor: "not-allowed" }}
               />
 
               <label>Frequency</label>

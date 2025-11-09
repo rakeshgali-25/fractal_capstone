@@ -3,23 +3,34 @@ import React, { useEffect, useState, useMemo } from "react";
 import api from "../../services/api";
 import "../../styles/progress.css";
 
-// Small presentational item (keeps markup consistent with your UI)
 function GoalProgressItem({ goal }) {
-  const pct = goal.progress_percent ?? Math.round(((goal.current_value || 0) / Math.max(1, goal.target_value || 1)) * 100);
+  const current = goal.current_value ?? 0;
+  const target = goal.target_value ?? 0;
+  const unit = goal.unit || "";
+  const pct =
+    goal.progress_percent ??
+    (target > 0 ? Math.round((current / target) * 100) : 0);
+
   return (
     <div className="goal-item">
       <div className="goal-left">
-        <h4 className="goal-title">{goal.title}</h4>
-        <div className="goal-sub muted">{goal.unit ? `${goal.unit} • Target: ${goal.target_value}` : `Target: ${goal.target_value}`}</div>
+        <div className="goal-title">{goal.title}</div>
+        <div className="goal-meta">
+          {unit ? `${unit} • Target: ${target}` : `Target: ${target}`}
+        </div>
       </div>
 
       <div className="goal-right">
-        <div className="progress-bar-outer" aria-hidden>
-          <div className="progress-bar-inner" style={{ width: `${pct}%` }} />
+        <div className="goal-pct">{pct}%</div>
+        <div className="progress-bar-outer">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
         </div>
-        <div className="goal-meta">
-          <div className="goal-pct">{pct}%</div>
-          <div className="goal-numbers muted">{(goal.current_value ?? 0)} / {goal.target_value}</div>
+        <div className="goal-values">
+          <span className="muted">{current}</span>
+          <span className="muted">/ {target}</span>
         </div>
       </div>
     </div>
@@ -37,8 +48,6 @@ export default function ProgressPage() {
       setLoading(true);
       setError("");
       try {
-        // Expecting an array with each item containing:
-        // { id, title, target_value, unit, current_value, progress_percent, frequency, ... }
         const res = await api.get("/api/progress/");
         if (!mounted) return;
         setGoals(Array.isArray(res.data) ? res.data : []);
@@ -50,13 +59,17 @@ export default function ProgressPage() {
       }
     }
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // overall percentage = average of each goal's percent (guard against empty)
   const overallPct = useMemo(() => {
     if (!goals || goals.length === 0) return 0;
-    const sum = goals.reduce((acc, g) => acc + (Number(g.progress_percent || 0)), 0);
+    const sum = goals.reduce(
+      (acc, g) => acc + (Number(g.progress_percent || 0) || 0),
+      0
+    );
     return Math.round(sum / goals.length);
   }, [goals]);
 
@@ -65,19 +78,23 @@ export default function ProgressPage() {
       <div className="progress-top">
         <div>
           <h2>Progress</h2>
-          <div className="muted">Track goal completion and historical trends</div>
+          <div className="muted">
+            Track goal completion and historical trends
+          </div>
         </div>
 
         <div className="progress-summary">
           <div className="summary-item">
             <div className="summary-title">Overall Progress</div>
             <div className="summary-value">{overallPct}%</div>
-            <div className="summary-sub muted">Average completion across goals</div>
+            <div className="summary-sub muted">
+              Average completion across goals
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="progress-body no-chart"> {/* no-chart flag can help target CSS */}
+      <div className="progress-body no-chart">
         <div className="left-column">
           <div className="card">
             <div className="card-head">Your goals</div>
@@ -85,7 +102,9 @@ export default function ProgressPage() {
             {loading && <div className="loading muted">Loading goals…</div>}
             {error && <div className="error muted">{error}</div>}
 
-            {!loading && goals.length === 0 && <div className="empty muted">You have no goals yet.</div>}
+            {!loading && goals.length === 0 && (
+              <div className="empty muted">You have no goals yet.</div>
+            )}
 
             <div className="goals-list">
               {goals.map((g) => (

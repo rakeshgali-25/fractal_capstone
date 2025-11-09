@@ -44,3 +44,20 @@
   .progress-body { flex-direction:column; }
   .right-column { width:100%; }
 }
+
+
+.progress-bar-outer {
+  background: rgba(255, 255, 255, 0.1);
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 100%;
+  margin: 4px 0;
+}
+
+.progress-bar-fill {
+  height: 8px;
+  background: var(--accent, #4f46e5);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
