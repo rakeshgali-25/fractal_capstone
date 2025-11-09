@@ -1,207 +1,67 @@
-import React, { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import Input from "../../components/ui/Input";
-import "../../styles/button.css";
-import Button from "../../components/ui/Button";
-import BASE_URL from "../../config/apiConfig";
+import React, { useState } from "react";
+import "../../styles/activity.css";
 
-export default function ActivityPage() {
-  const [showModal, setShowModal] = useState(false);
-  const [activityName, setActivityName] = useState("");
-  const [activityMessage, setActivityMessage] = useState("");
-  const [messageColor, setMessageColor] = useState("green");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [activities, setActivities] = useState([]);
+const AddActivity = () => {
+  const predefinedActivities = [
+    { name: "Running" },
+    { name: "Cycling" },
+    { name: "Swimming" },
+    { name: "Walking" },
+    { name: "Yoga" },
+    { name: "Gym Workout" },
+  ];
 
-  const token = localStorage.getItem("ft_access");
+  const [selectedActivity, setSelectedActivity] = useState("");
+  const [duration, setDuration] = useState("");
+  const [message, setMessage] = useState("");
 
-  const fetchActivities = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/add-activity/`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setActivities(result.data);
-      }
-    } catch (error) {
-      console.error("Error fetching activities:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchActivities();
-  }, []);
-
-  const handleSubmit = async () => {
-    if (!activityName.trim()) {
-      setErrorMessage("Please enter an activity name.");
-      setTimeout(() => setErrorMessage(""), 2000);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedActivity || !duration) {
+      setMessage("Please select activity and enter duration.");
       return;
     }
-    try {
-      const response = await fetch(`${BASE_URL}/add-activity/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: activityName }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setActivityMessage("Activity Created Successfully");
-        setMessageColor("green");
-        setShowModal(false);
-        setActivityName("");
-        setErrorMessage("");
-        fetchActivities(); // Refresh list
-        setTimeout(() => setActivityMessage(""), 2000);
-      } else {
-        setErrorMessage("This activity already exists.");
-        setTimeout(() => setErrorMessage(""), 2000);
-        setActivityName("");
-      }
-    } catch (error) {
-      setErrorMessage("Network error or server not reachable.");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      const response = await fetch(`${BASE_URL}/add-activity/`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setActivityMessage("Activity Deleted Successfully");
-        setMessageColor("red");
-        fetchActivities(); // Refresh list
-        setTimeout(() => setActivityMessage(""), 2000);
-      }
-    } catch (error) {
-      console.error("Delete failed:", error);
-    }
+    setMessage(
+      `You selected ${selectedActivity} for ${duration} minutes — calories will be calculated automatically.`
+    );
+    setSelectedActivity("");
+    setDuration("");
   };
 
   return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div>
-        <h2 style={{ margin: 0 }}>Activity</h2>
-      </div>
-      {activityMessage && (
-        <div style={{
-          color: messageColor,
-          fontSize: "16px",
-          margin: "16px 0",
-          textAlign: "center",
-          fontWeight: "bold"
-        }}>
-          {activityMessage}
-        </div>
-      )}
-        <Button className="gradient-button compact-button" onClick={() => setShowModal(true)}>
-          Add Activity
-        </Button>
-      </div>
+    <div className="add-activity-page">
+      <h2 className="add-activity-title">Log Your Activity</h2>
 
-      {/* Activity List */}
-      <div style={{ marginTop: "20px" }}>
-        {activities.length === 0 ? (
-          <p style={{ color: "#ccc" }}>No activities added yet.</p>
-        ) : (
-          activities.map((activity) => (
-            <div key={activity.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #444" }}>
-              <span>{activity.name}</span>
-              <Button
-                className="gradient-button compact-button"
-                style={{ padding: "4px 10px", fontSize: "12px" }}
-                onClick={() => handleDelete(activity.id)}
-              >
-                Delete
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
+      <form onSubmit={handleSubmit} className="add-activity-form">
+        <select
+          value={selectedActivity}
+          onChange={(e) => setSelectedActivity(e.target.value)}
+          className="add-activity-dropdown"
+        >
+          <option value="">-- Select Activity --</option>
+          {predefinedActivities.map((act, i) => (
+            <option key={i} value={act.name}>
+              {act.name}
+            </option>
+          ))}
+        </select>
 
-      {/* Modal */}
-      {showModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3>Add New Activity</h3>
-            {errorMessage && (
-              <div style={{ color: "red", marginBottom: "10px", fontSize: "14px" }}>
-                {errorMessage}
-              </div>
-            )}
-            <Input
-              name="activityName"
-              value={activityName}
-              onChange={(e) => setActivityName(e.target.value)}
-              placeholder="Enter activity name"
-            />
-        <div style={styles.buttonGroup}>
-          <Button className="gradient-button" onClick={handleSubmit}>
-            Submit
-          </Button>
-          <Button
-            className="gradient-button"
-            onClick={() => {
-              setShowModal(false);
-              setErrorMessage("");
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
-          </div>
-        </div>
-      )}
-    </>
+        <input
+          type="number"
+          placeholder="Duration (minutes)"
+          value={duration}
+          onChange={(e) => setDuration(e.target.value)}
+          className="add-activity-input"
+        />
+
+        <button type="submit" className="add-activity-btn">
+          Log Activity
+        </button>
+      </form>
+
+      {message && <p className="activity-message">{message}</p>}
+    </div>
   );
-}
-
-const styles = {
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    padding: "30px",
-    borderRadius: "12px",
-    width: "360px",
-    backdropFilter: "blur(12px)",
-    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-    fontFamily: "'Segoe UI', sans-serif",
-    color: "#fff",
-  },
-  buttonGroup: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "10px",
-  },
 };
 
-
+export default AddActivity;

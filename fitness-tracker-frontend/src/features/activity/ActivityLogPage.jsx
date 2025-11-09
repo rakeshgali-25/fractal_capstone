@@ -1,280 +1,253 @@
-import React, { useState, useEffect } from "react";
-import Input from "../../components/ui/Input";
-import Button from "../../components/ui/Button";
-import "../../styles/button.css";
-import Select from "../../components/ui/Select";
-import "../../styles/select.css";
-import BASE_URL from "../../config/apiConfig";
+import React, { useEffect, useState } from "react";
+import api from "../../services/api";
+import "../../styles/activitylog.css";
 
-export default function ActivityLogPage() {
-  const [logs, setLogs] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [goals, setGoals] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [logMessage, setLogMessage] = useState("");
-  const [messageColor, setMessageColor] = useState("green");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingLogId, setEditingLogId] = useState(null);
+/*
+  ActivityLog (connected)
+  - Loads activities from /api/activities/
+  - Loads logs from /api/activity-logs/
+  - Create: POST { activity_id, duration, date }
+  - Delete: DELETE /api/activity-logs/:id/
+  - Edit: simple flow — delete existing log and create a new one (keeps backend simple)
+*/
 
-  const [logData, setLogData] = useState({
-    goal_id: "",
-    current_value: "",
-    unit: "",
+const ActivityLog = () => {
+  const [activities, setActivities] = useState([]); // {id, name}
+  const [logs, setLogs] = useState([]); // logs from backend
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
+    activityId: "",
+    duration: "",
+    date: new Date().toISOString().slice(0, 10),
   });
 
-  const token = localStorage.getItem("ft_access");
+  const [editing, setEditing] = useState(null); // editing holds the log object if in edit mode
+  const [msg, setMsg] = useState("");
 
-  const fetchLogs = async () => {
+  // --- load activities and logs ---
+  const loadActivities = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/activityLog/`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await response.json();
-      if (response.ok) setLogs(result.data);
-    } catch (error) {
-      console.error("Error fetching logs:", error);
+      const res = await api.get("/api/activities/");
+      setActivities(res.data || []);
+    } catch (err) {
+      console.error("Failed to load activities", err);
+      // keep silent, you can show toast
     }
   };
 
-  const fetchGoals = async () => {
+  const loadLogs = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/fitness-goal/`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await response.json();
-      if (response.ok) setGoals(result.data);
-    } catch (error) {
-      console.error("Error fetching goals:", error);
+      const res = await api.get("/api/activity-logs/");
+      // map backend shape to UI shape
+      const mapped = (res.data || []).map((l) => ({
+        id: l.id,
+        activityName: l.activity_name || l.goal_title || (l.goal && l.goal.activity_name) || "Activity",
+        duration: l.duration_min ?? 0,
+        calories: l.current_value ?? 0,
+        date: l.timestamp ? l.timestamp.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        raw: l, // keep original if needed
+      }));
+      setLogs(mapped);
+    } catch (err) {
+      console.error("Failed to load logs", err);
     }
   };
 
   useEffect(() => {
-    fetchLogs();
-    fetchGoals();
+    setLoading(true);
+    (async () => {
+      await loadActivities();
+      await loadLogs();
+      setLoading(false);
+    })();
   }, []);
 
-  const handleSubmit = async () => {
-    const { goal_id, current_value, unit } = logData;
-    if (!goal_id || !current_value || !unit) {
-      setErrorMessage("Goal, value, and unit are required.");
-      setTimeout(() => setErrorMessage(""), 2000);
+  // --- helpers ---
+  const resetForm = () => setForm({ activityId: "", duration: "", date: new Date().toISOString().slice(0, 10) });
+
+  const showTempMsg = (t) => {
+    setMsg(t);
+    setTimeout(() => setMsg(""), 2500);
+  };
+
+  // --- create or update (we implement update as delete + create to keep backend contract simple) ---
+  const handleAddOrUpdate = async (e) => {
+    e.preventDefault();
+
+    if (!form.activityId || !form.duration) {
+      showTempMsg("Select activity and enter duration.");
       return;
     }
 
-    const method = isEditing ? "PUT" : "POST";
-    const url = `${BASE_URL}/activityLog/`;
-    const body = isEditing ? { ...logData, id: editingLogId } : logData;
-
+    setSaving(true);
     try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setLogMessage(isEditing ? "Activity Log Updated" : "Activity Log Created");
-        setMessageColor("green");
-        setShowModal(false);
-        setLogData({ goal_id: "", current_value: "", unit: "" });
-        setIsEditing(false);
-        setEditingLogId(null);
-        fetchLogs();
-        setTimeout(() => setLogMessage(""), 2000);
-      } else {
-        setErrorMessage("Unit must not contain numbers.");
-        setTimeout(() => setErrorMessage(""), 2000);
+      // if editing -> delete old log first
+      if (editing) {
+        try {
+          await api.delete(`/api/activity-logs/${editing.id}/`);
+        } catch (err) {
+          // if delete fails, still attempt to create (or bail). We'll bail with an error.
+          console.error("Failed to delete before update:", err);
+          throw new Error("Could not update log (delete failed).");
+        }
       }
-    } catch (error) {
-      setErrorMessage("Network error or server not reachable.");
+
+      // create new log
+      const payload = {
+        activity_id: Number(form.activityId),
+        duration: Number(form.duration),
+        date: form.date,
+      };
+
+      // eslint-disable-next-line no-unused-vars
+      const res = await api.post("/api/activity-logs/", payload);
+      // reload logs — simple and consistent
+      await loadLogs();
+
+      resetForm();
+      setEditing(null);
+      showTempMsg(editing ? "Activity updated." : "Activity logged.");
+    } catch (err) {
+      console.error("Save failed:", err);
+      const detail = err.response?.data || err.message;
+      showTempMsg("Save failed: " + (typeof detail === "string" ? detail : JSON.stringify(detail)));
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleEdit = (log) => {
+    // find matching activity id for this activity name (best-effort)
+    const activity = activities.find((a) => a.name.toLowerCase() === log.activityName.toLowerCase());
+    setEditing(log);
+    setForm({
+      activityId: activity ? activity.id : "",
+      duration: log.duration,
+      date: log.date,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm("Delete this log?")) return;
     try {
-      const response = await fetch(`${BASE_URL}/activityLog/`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setLogMessage("Activity Log Deleted");
-        setMessageColor("red");
-        fetchLogs();
-        setTimeout(() => setLogMessage(""), 2000);
-      }
-    } catch (error) {
-      console.error("Delete failed:", error);
+      await api.delete(`/api/activity-logs/${id}/`);
+      setLogs((prev) => prev.filter((l) => l.id !== id));
+      showTempMsg("Deleted.");
+    } catch (err) {
+      console.error("Delete failed:", err);
+      showTempMsg("Could not delete log.");
     }
   };
 
+  // --- UI render helpers ---
+  const activityOptions = activities.length
+    ? activities
+    : [
+        { id: "none", name: "No activities found (seed via admin)" },
+      ];
+
   return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0 }}>Activity Logs</h2>
-        {logMessage && (
-          <div style={{ color: messageColor, fontSize: "16px", margin: "16px 0", fontWeight: "bold" }}>
-            {logMessage}
-          </div>
-        )}
-        <Button className="gradient-button compact-button" onClick={() => setShowModal(true)}>
-          Add Activity Log
-        </Button>
+    <div className="activity-log-page">
+      <div className="log-top">
+        <h2>Activity Log</h2>
+        <p className="sub">Log your activity — calories are estimated on the server.</p>
       </div>
 
-      {/* Log List */}
-      <div style={{ marginTop: "20px" }}>
-        {logs.length === 0 ? (
-          <p style={{ color: "#ccc" }}>No activity logs yet.</p>
-        ) : (
-          logs.map((log) => (
-            <div
-              key={log.id}
-              style={{
-                padding: "12px",
-                marginBottom: "12px",
-                border: "1px solid #444",
-                borderRadius: "8px",
-                backgroundColor: "rgba(255,255,255,0.03)",
-              }}
+      <form className="log-form" onSubmit={handleAddOrUpdate}>
+        <div className="row">
+          <label>
+            Activity
+            <select
+              value={form.activityId}
+              onChange={(e) => setForm({ ...form, activityId: e.target.value })}
+              required
             >
-              <div><strong>Goal:</strong> {log.activity_name || "N/A"}</div>
-              <div><strong>Effort Logged:</strong> {log.current_value} {log.unit}</div>
-              <div><strong>Date:</strong> {new Date(log.timestamp).toLocaleDateString()}</div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
-                <Button
-                  className="gradient-button compact-button"
-                  style={{ padding: "4px 10px", fontSize: "12px" }}
-                  onClick={() => {
-                    setLogData({
-                      goal_id: log.goal_id,
-                      current_value: log.current_value,
-                      unit: log.unit,
-                    });
-                    setEditingLogId(log.id);
-                    setIsEditing(true);
-                    setShowModal(true);
-                  }}
-                >
-                  Update
-                </Button>
-                <Button
-                  className="gradient-button compact-button"
-                  style={{ padding: "4px 10px", fontSize: "12px" }}
-                  onClick={() => handleDelete(log.id)}
-                >
-                  Delete
-                </Button>
+              <option value="">-- Select activity --</option>
+              {activityOptions.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Duration (minutes)
+            <input
+              type="number"
+              min="1"
+              value={form.duration}
+              onChange={(e) => setForm({ ...form, duration: e.target.value })}
+              placeholder="e.g. 30"
+              required
+            />
+          </label>
+
+          <label>
+            Date
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+            />
+          </label>
+        </div>
+
+        <div className="row actions">
+          <button type="submit" className="primary-btn" disabled={saving}>
+            {saving ? (editing ? "Updating..." : "Saving...") : editing ? "Update Log" : "Add Log"}
+          </button>
+
+          <button
+            type="button"
+            className="muted-btn"
+            onClick={() => {
+              resetForm();
+              setEditing(null);
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+
+          <div className="msg">{msg}</div>
+        </div>
+      </form>
+
+      <div className="recent-section">
+        <h3>Recent Activity</h3>
+
+        <div className="table">
+          <div className="table-head">
+            <div>Activity</div>
+            <div>Date</div>
+            <div>Duration (min)</div>
+            <div>Calories</div>
+            <div></div>
+          </div>
+
+          {loading && <div className="empty">Loading...</div>}
+          {!loading && logs.length === 0 && <div className="empty">No activity logged yet.</div>}
+
+          {logs.map((log) => (
+            <div className="table-row" key={log.id}>
+              <div className="col activity-name">{log.activityName}</div>
+              <div className="col date">{new Date(log.date).toLocaleDateString()}</div>
+              <div className="col">{log.duration}</div>
+              <div className="col">{log.calories ?? "—"}</div>
+              <div className="col actions-col">
+                <button className="small-btn" onClick={() => handleEdit(log)}>Edit</button>
+                <button className="small-btn danger" onClick={() => handleDelete(log.id)}>Delete</button>
               </div>
             </div>
-          ))
-        )}
-      </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3>{isEditing ? "Update Activity Log" : "Add New Activity Log"}</h3>
-            {errorMessage && <div style={{ color: "red", marginBottom: "10px" }}>{errorMessage}</div>}
-            {/* <Select
-              name="goal_id"
-              value={logData.goal_id}
-              onChange={(e) => setLogData({ ...logData, goal_id: e.target.value })}
-              options={goals}
-              labelKey="activity_name"
-              valueKey="id"
-              placeholder="Select Goal"
-            /> */}
-
-            {isEditing ? (
-            <Input
-              name="goal_name"
-              value={
-                goals.find((g) => String(g.id) === String(logData.goal_id))?.activity_name || "Unknown Goal"
-              }
-              readOnly
-              placeholder="Goal"
-            />
-          ) : (
-            <Select
-              name="goal_id"
-              value={logData.goal_id}
-              onChange={(e) => setLogData({ ...logData, goal_id: e.target.value })}
-              options={goals}
-              labelKey="activity_name"
-              valueKey="id"
-              placeholder="Select Goal"
-            />
-          )}
-
-            <Input
-              name="current_value"
-              value={logData.current_value}
-              onChange={(e) => setLogData({ ...logData, current_value: e.target.value })}
-              placeholder="Current Value"
-              type="number"
-            />
-            <Input
-              name="unit"
-              value={logData.unit}
-              onChange={(e) => setLogData({ ...logData, unit: e.target.value })}
-              placeholder="Unit (e.g., km, minutes)"
-            />
-            <div style={styles.buttonGroup}>
-              <Button className="gradient-button" onClick={handleSubmit}>Submit</Button>
-              <Button className="gradient-button" onClick={() => setShowModal(false)}>Cancel</Button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
-}
-
-
-const styles = {
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    padding: "30px",
-    borderRadius: "12px",
-    width: "360px",
-    backdropFilter: "blur(12px)",
-    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-    fontFamily: "'Segoe UI', sans-serif",
-    color: "#fff",
-  },
-  buttonGroup: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "10px",
-  },
 };
 
-
-
+export default ActivityLog;

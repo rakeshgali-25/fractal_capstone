@@ -12,9 +12,9 @@ export default function Sidebar() {
         <NavLink to="/dashboard" className="menu-item">
           Dashboard
         </NavLink>
-         <NavLink to="/activity" className="menu-item">
+         {/* <NavLink to="/activity" className="menu-item">
           Add Activity 
-        </NavLink>
+        </NavLink> */}
         <NavLink to="/goals" className="menu-item">
           Goals
         </NavLink>

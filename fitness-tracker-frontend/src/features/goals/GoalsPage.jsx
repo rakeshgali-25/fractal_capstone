@@ -1,339 +1,234 @@
 import React, { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import Input from "../../components/ui/Input";
-import Button from "../../components/ui/Button";
-import "../../styles/button.css";
-import Select from "../../components/ui/Select";
-import "../../styles/select.css";
-import BASE_URL from "../../config/apiConfig";
+import api from "../../services/api"; // your axios helper
+import "../../styles/goals.css";
 
-export default function GoalPage() {
+const GoalsPage = () => {
   const [goals, setGoals] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [showModal, setShowModal] = useState(false);
-  const [goalData, setGoalData] = useState({
-    activity_id: "",
-    description: "",
-    target_value: "",
+  const [editingGoal, setEditingGoal] = useState(null);
+
+  const [form, setForm] = useState({
+    activity: "",
+    target: "",
     unit: "",
-    deadline: "",
+    frequency: "weekly",
   });
 
-  const [activities, setActivities] = useState([]);
-  const [goalMessage, setGoalMessage] = useState("");
-  const [messageColor, setMessageColor] = useState("green");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingGoalId, setEditingGoalId] = useState(null);
-
-
-  const token = localStorage.getItem("ft_access");
-
-  const fetchGoals = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/fitness-goal/`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setGoals(result.data);
-      }
-    } catch (error) {
-      console.error("Error fetching goals:", error);
-    }
-  };
-  
-
+  // Load goals + activities
   useEffect(() => {
-    fetchGoals();
+    const fetchData = async () => {
+      try {
+        const [goalsRes, activitiesRes] = await Promise.all([
+          api.get("/api/goals/"),
+          api.get("/api/activities/"),
+        ]);
+        setGoals(goalsRes.data || []);
+        setActivities(activitiesRes.data || []);
+      } catch (err) {
+        console.error("Error loading goals:", err);
+        // optional: show user-friendly message
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const fetchActivities = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/add-activity/`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  // --- helpers ---
+  const getActivityName = (activityId) => {
+    const a = activities.find((x) => Number(x.id) === Number(activityId));
+    return a ? a.name : "Goal";
+  };
+
+  const groupGoals = (type) =>
+    goals.filter((g) => (g.frequency || "").toLowerCase() === type);
+
+  // --- modal open/close ---
+  const openAddModal = () => {
+    setEditingGoal(null);
+    setForm({ activity: "", target: "", unit: "", frequency: "weekly" });
+    setShowModal(true);
+  };
+
+  const openEditModal = (goal) => {
+    setEditingGoal(goal);
+    setForm({
+      activity: goal.activity ?? "",
+      target: goal.target_value ?? "",
+      unit: goal.unit ?? "",
+      frequency: goal.frequency ?? "weekly",
     });
-    const result = await response.json();
-    if (response.ok) {
-      setActivities(result.data); // assuming result.data is an array of activities
-    }
-  } catch (error) {
-    console.error("Error fetching activities:", error);
-  }
-};
+    setShowModal(true);
+  };
 
-useEffect(() => {
-  fetchGoals();
-  fetchActivities(); // fetch activities when component mounts
-}, []);
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingGoal(null);
+  };
 
-
-
-  const handleSubmit = async () => {
-  const { activity_id, target_value, unit , deadline } = goalData;
-  if (!activity_id || !target_value || !unit || !deadline) {
-    setErrorMessage("Activity, target value, unit and deadline are required.");
-    setTimeout(() => setErrorMessage(""), 2000);
-    return;
-  }
-
-  const method = isEditing ? "PUT" : "POST";
-  const url = `${BASE_URL}/fitness-goal/`;
-  const body = isEditing ? { ...goalData, id: editingGoalId } : goalData;
-
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const result = await response.json();
-    if (response.ok) {
-      setGoalMessage(isEditing ? "Fitness Goal Updated Successfully" : "Fitness Goal Created Successfully");
-      setMessageColor("green");
-      setShowModal(false);
-      setGoalData({
-        activity_id: "",
-        description: "",
-        target_value: "",
-        unit: "",
-        deadline: "",
-      });
-      setIsEditing(false);
-      setEditingGoalId(null);
-      fetchGoals();
-      setTimeout(() => setGoalMessage(""), 2000);
-    } else {
-      setErrorMessage("Unit must not contain numbers");
-      setTimeout(() => setErrorMessage(""), 2000);
-    }
-  } catch (error) {
-    setErrorMessage("Network error or server not reachable.");
-  }
-};
-
-
-
-  const handleDelete = async (id) => {
+  // --- CRUD operations ---
+  const handleDelete = async (goalId) => {
+    if (!window.confirm("Delete this goal? This cannot be undone.")) return;
     try {
-      const response = await fetch(`${BASE_URL}/fitness-goal/`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        setGoalMessage("Fitness Goal Deleted Successfully");
-        setMessageColor("red");
-        fetchGoals();
-        setTimeout(() => setGoalMessage(""), 2000);
-      }
-    } catch (error) {
-      console.error("Delete failed:", error);
+      await api.delete(`/api/goals/${goalId}/`);
+      setGoals((prev) => prev.filter((g) => g.id !== goalId));
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Could not delete goal.");
     }
   };
 
+  const handleSave = async (e) => {
+    e.preventDefault();
+
+    // basic validation
+    if (!form.activity || !form.target || !form.unit || !form.frequency) {
+      alert("Please fill all required fields.");
+      return;
+    }
+
+    const activityId = Number(form.activity);
+    const payload = {
+      // backend requires title — use activity name as default
+      title: getActivityName(activityId),
+      activity: activityId,
+      target_value: Number(form.target),
+      unit: form.unit,
+      frequency: form.frequency,
+    };
+
+    try {
+      if (editingGoal) {
+        const res = await api.put(`/api/goals/${editingGoal.id}/`, payload);
+        setGoals((prev) => prev.map((g) => (g.id === editingGoal.id ? res.data : g)));
+      } else {
+        const res = await api.post("/api/goals/", payload);
+        setGoals((prev) => [...prev, res.data]);
+      }
+      closeModal();
+    } catch (err) {
+      console.error("Save failed:", err);
+      const server = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      alert("Could not save goal. " + server);
+    }
+  };
+
+  // --- render helpers ---
+  const renderGoalCard = (goal) => (
+    <div key={goal.id} className="goal-card">
+      <div className="goal-info">
+        <h4>{goal.title || goal.activity_name}</h4>
+        <p className="target-text">
+          Target: {goal.target_value} {goal.unit}
+        </p>
+      </div>
+
+      <div className="right-column">
+        <div className="goal-progress">
+          <div
+            className="goal-progress-bar"
+            style={{ width: `${goal.progress ?? 0}%` }}
+          />
+          <span className="goal-progress-text">{goal.progress ?? 0}%</span>
+        </div>
+
+        <div className="goal-actions">
+          <button className="edit-btn" onClick={() => openEditModal(goal)}>
+            Edit
+          </button>
+          <button className="delete-btn" onClick={() => handleDelete(goal.id)}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading) return <p className="loading-text">Loading goals...</p>;
+
   return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ margin: 0 }}>Fitness Goals</h2>
-        {goalMessage && (
-          <div style={{
-            color: messageColor,
-            fontSize: "16px",
-            margin: "16px 0",
-            textAlign: "center",
-            fontWeight: "bold"
-          }}>
-            {goalMessage}
-          </div>
-        )}
-        <Button className="gradient-button compact-button" onClick={() => setShowModal(true)}>
-          Add Goal
-        </Button>
+    <div className="goals-page">
+      <div className="goals-header">
+        <h2>Your Goals</h2>
+        <button className="add-goal-btn" onClick={openAddModal}>
+          + Add Goal
+        </button>
       </div>
 
-      {/* Goal List */}
-      <div style={{ marginTop: "20px" }}>
-        {goals.length === 0 ? (
-          <p style={{ color: "#ccc" }}>No fitness goals added yet.</p>
+      <section className="goals-section">
+        <h3 className="section-title">Daily Goals</h3>
+        {groupGoals("daily").length ? groupGoals("daily").map(renderGoalCard) : <p className="empty-note">No daily goals yet.</p>}
+      </section>
+
+      <section className="goals-section">
+        <h3 className="section-title">Weekly Goals</h3>
+        {groupGoals("weekly").length ? groupGoals("weekly").map(renderGoalCard) : <p className="empty-note">No weekly goals yet.</p>}
+      </section>
+
+      <section className="goals-section">
+        <h3 className="section-title">Other Goals</h3>
+        {(
+          groupGoals("monthly").concat(groupGoals("one_time"))
+        ).length ? (
+          groupGoals("monthly").concat(groupGoals("one_time")).map(renderGoalCard)
         ) : (
-          goals.map((goal) => (
-            <div
-              key={goal.id}
-              style={{
-                padding: "12px",
-                marginBottom: "12px",
-                border: "1px solid #444",
-                borderRadius: "8px",
-                backgroundColor: "rgba(255,255,255,0.03)",
-              }}
-            >
-              <div style={{ marginBottom: "6px", fontWeight: "bold" }}>
-                Activity: {goal.activity_name || "N/A"}
-              </div>
-              <div>Description: {goal.description || "No description provided"}</div>
-              <div>Target: {goal.target_value} {goal.unit}</div>
-              <div>Deadline: {goal.deadline || "No deadline set"}</div>
-              <div style={{ marginTop: "10px", textAlign: "right" }}>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
-                <Button
-                  className="gradient-button compact-button"
-                  style={{ padding: "4px 10px", fontSize: "12px" }}
-                  onClick={() => {
-                    setGoalData({
-                      activity_id: goal.activity_id,
-                      description: goal.description,
-                      target_value: goal.target_value,
-                      unit: goal.unit,
-                      deadline: goal.deadline,
-                    });
-                    setEditingGoalId(goal.id);
-                    setIsEditing(true);
-                    setShowModal(true);
-                  }}
-                >
-                  Update
-                </Button>
-
-                <Button
-                  className="gradient-button compact-button"
-                  style={{ padding: "4px 10px", fontSize: "12px" }}
-                  onClick={() => handleDelete(goal.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-
-              </div>
-            </div>
-          ))
+          <p className="empty-note">No other goals yet.</p>
         )}
-      </div>
+      </section>
 
-
-      {/* Modal */}
       {showModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3>{isEditing ? "Update Fitness Goal" : "Add New Fitness Goal"}</h3>
-            {errorMessage && (
-              <div style={{ color: "red", marginBottom: "10px", fontSize: "14px" }}>
-                {errorMessage}
+        <div className="goal-modal">
+          <div className="goal-modal-content">
+            <h3>{editingGoal ? "Edit Goal" : "Add New Goal"}</h3>
+
+            <form onSubmit={handleSave}>
+              <label>Activity</label>
+              <select value={form.activity} onChange={(e) => setForm({ ...form, activity: e.target.value })}>
+                <option value="">Select Activity</option>
+                {activities.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+
+              <label>Target</label>
+              <input
+                type="number"
+                placeholder="Target value"
+                value={form.target}
+                onChange={(e) => setForm({ ...form, target: e.target.value })}
+              />
+
+              <label>Unit</label>
+              <input
+                type="text"
+                placeholder="e.g. km, kcal"
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+              />
+
+              <label>Frequency</label>
+              <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })}>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="one_time">One-time</option>
+              </select>
+
+              <div className="modal-actions">
+                <button type="submit" className="save-btn">{editingGoal ? "Update" : "Save"}</button>
+                <button type="button" className="cancel-btn" onClick={closeModal}>Cancel</button>
               </div>
-            )}
-        
-
-              {isEditing ? (
-                <Input
-                  name="activity_name"
-                  value={
-                    activities.find((a) => String(a.id) === String(goalData.activity_id))?.name || "Unknown"
-                  }
-                  readOnly
-                  placeholder="Activity"
-                />
-              ) : (
-                <Select
-                  name="activity_id"
-                  value={goalData.activity_id}
-                  onChange={(e) => setGoalData({ ...goalData, activity_id: e.target.value })}
-                  options={activities}
-                  labelKey="name"
-                  valueKey="id"
-                  placeholder="Select Activity"
-                />
-              )}
-
-            <Input
-              name="description"
-              value={goalData.description}
-              onChange={(e) => setGoalData({ ...goalData, description: e.target.value })}
-              placeholder="Description"
-            />
-            <Input
-              name="target_value"
-              value={goalData.target_value}
-              onChange={(e) => setGoalData({ ...goalData, target_value: e.target.value })}
-              placeholder="Target Value"
-              type="number"
-            />
-            <Input
-              name="unit"
-              value={goalData.unit}
-              onChange={(e) => setGoalData({ ...goalData, unit: e.target.value })}
-              placeholder="Unit (e.g., km, minutes)"
-            />
-            <Input
-              name="deadline"
-              value={goalData.deadline}
-              onChange={(e) => setGoalData({ ...goalData, deadline: e.target.value })}
-              placeholder="Deadline"
-              type="date"
-            />
-            <div style={styles.buttonGroup}>
-              <Button className="gradient-button" onClick={handleSubmit}>
-                Submit
-              </Button>
-              <Button
-                className="gradient-button"
-                onClick={() => {
-                  setShowModal(false);
-                  setErrorMessage("");
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
+            </form>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
-}
-
-
-
-const styles = {
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    padding: "30px",
-    borderRadius: "12px",
-    width: "360px",
-    backdropFilter: "blur(12px)",
-    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.3)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-    fontFamily: "'Segoe UI', sans-serif",
-    color: "#fff",
-  },
-  buttonGroup: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "10px",
-  },
 };
+
+export default GoalsPage;

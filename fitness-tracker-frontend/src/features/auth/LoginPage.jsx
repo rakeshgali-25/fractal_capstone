@@ -28,7 +28,7 @@ export default function LoginPage() {
     if (res.ok) {
       navigate('/dashboard');
     } else {
-      setError(res.error || 'Login failed');
+      setError(res.error.message || 'Login failed');
     }
   }
 
