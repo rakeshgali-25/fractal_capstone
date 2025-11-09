@@ -9,15 +9,22 @@ class CustomUser(AbstractUser):
     age = models.IntegerField(null=True, blank=True)
 
 
-class Activity(models.Model):
+class Activity(models.Model):    
+
+    ACTIVITY_CHOICES = [
+        ('Running', 'Running'),
+        ('Swimming', 'Swimming'),
+        ('Cycling', 'Cycling'),
+        ('Yoga', 'Yoga'),
+        ('Hiking', 'Hiking'),
+        # Add more as needed
+    ]
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activities')
-    name = models.CharField(max_length=100)  # e.g., Running, Swimming
+    name = models.CharField(max_length=100, choices=ACTIVITY_CHOICES)  # e.g., Running, Swimming
     
     class Meta:
         unique_together = ('user', 'name')
-    def validate_name(self, value):
-        # Capitalize the first letter of the name
-        return value.capitalize()
+  
     
     def __str__(self):
         return f"{self.name} {self.user}"
