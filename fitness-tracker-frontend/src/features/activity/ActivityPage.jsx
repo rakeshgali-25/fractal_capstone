@@ -5,6 +5,17 @@ import "../../styles/button.css";
 import Button from "../../components/ui/Button";
 import BASE_URL from "../../config/apiConfig";
 
+import Select from "../../components/ui/Select"; // make sure this import is present
+
+const ACTIVITY_OPTIONS = [
+  { id: "Running", name: "Running" },
+  { id: "Swimming", name: "Swimming" },
+  { id: "Cycling", name: "Cycling" },
+  { id: "Yoga", name: "Yoga" },
+  { id: "Hiking", name: "Hiking" },
+];
+
+
 export default function ActivityPage() {
   const [showModal, setShowModal] = useState(false);
   const [activityName, setActivityName] = useState("");
@@ -144,12 +155,22 @@ export default function ActivityPage() {
                 {errorMessage}
               </div>
             )}
-            <Input
+            {/* <Input
               name="activityName"
               value={activityName}
               onChange={(e) => setActivityName(e.target.value)}
               placeholder="Enter activity name"
+            /> */}
+
+
+            <Select
+              name="activityName"
+              value={activityName}
+              onChange={(e) => setActivityName(e.target.value)}
+              options={ACTIVITY_OPTIONS}
+              placeholder="Select an activity"
             />
+
         <div style={styles.buttonGroup}>
           <Button className="gradient-button" onClick={handleSubmit}>
             Submit

@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
   async function login(username, password) {
     // call API - expects { access, refresh, user } or adjust per your backend
     try {
-    const res = await api.post('/login/', { "username":username, password });
+    const res = await api.post('/login/', { "identifier":username, password });
       // customize based on backend response shape:
       const { access, refresh, user: userData } = res.data;
       localStorage.setItem('ft_access', access);

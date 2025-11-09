@@ -79,9 +79,9 @@ class ActivitySerializer(serializers.ModelSerializer):
         fields = ['id', 'name',]
         read_only_fields = ['user'] 
         
-    def validate_name(self, value):
-        # Capitalize the first letter of the name
-        return value.capitalize()
+    # def validate_name(self, value):
+    #     # Capitalize the first letter of the name
+    #     return value.capitalize()
         
 
 class FitnessGoalSerializer(serializers.ModelSerializer):
