@@ -189,7 +189,6 @@ class ProgressViewSet(viewsets.ViewSet):
 
 
 
-
 class DashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -198,11 +197,11 @@ class DashboardAPIView(APIView):
         today = timezone.now().date()
         week_start = today - timedelta(days=6)
 
-        # --- Logs for last 7 days ---
+        # logs in last 7 days
         logs_qs = ActivityLog.objects.filter(user=user, timestamp__date__gte=week_start)
         today_logs = logs_qs.filter(timestamp__date=today)
 
-        # --- Safe aggregation helper ---
+        # safe sum helper
         def safe_sum(qs, field):
             val = qs.aggregate(total=Sum(field)).get("total")
             try:
@@ -210,21 +209,71 @@ class DashboardAPIView(APIView):
             except (TypeError, ValueError):
                 return 0.0
 
-        # --- Summary section ---
+        # summary numbers
         calories_today = safe_sum(today_logs, "calories")
         active_minutes_today = safe_sum(today_logs, "duration_minutes")
         steps_today = safe_sum(today_logs, "steps")
 
         goals = FitnessGoal.objects.filter(user=user)
+
+        # mapping from goal.unit -> ActivityLog field to sum
+        unit_to_field = {
+            "kcal": "calories",
+            "calories": "calories",
+            "min": "duration_minutes",
+            "minute": "duration_minutes",
+            "minutes": "duration_minutes",
+            "duration": "duration_minutes",
+            "steps": "steps",
+            "step": "steps",
+            "km": "distance_km",
+            "distance": "distance_km",
+            "count": "count",
+        }
+
+        # compute completed goals by summing appropriate field in the goal's frequency window
+        completed = 0
+        for g in goals:
+            target = g.target_value or 0.0
+            if not target or target <= 0:
+                # skip goals with no meaningful target
+                continue
+
+            freq = (g.frequency or "weekly").lower()
+            if freq == "daily":
+                since_date = today
+            elif freq == "weekly":
+                since_date = today - timedelta(days=6)  # last 7 days inclusive
+            elif freq == "monthly":
+                since_date = today - timedelta(days=29)  # last 30 days
+            else:
+                since_date = None  # one_time -> whole history
+
+            unit_key = (g.unit or "").strip().lower()
+            field_name = unit_to_field.get(unit_key, "calories")
+
+            qs = ActivityLog.objects.filter(goal=g, user=user)
+            if since_date:
+                qs = qs.filter(timestamp__date__gte=since_date)
+
+            agg_val = qs.aggregate(total=Sum(field_name)).get("total")
+            try:
+                current_val = float(agg_val or 0.0)
+            except (TypeError, ValueError):
+                current_val = 0.0
+
+            if current_val >= float(target):
+                completed += 1
+
         summary = {
             "calories_today": round(calories_today, 1),
             "active_minutes_today": int(active_minutes_today),
             "steps_today": int(steps_today),
-            "completed_goals": goals.filter(target_value__gt=0).count(),  # placeholder
+            "completed_goals": int(completed),
             "total_goals": goals.count(),
         }
 
-        # --- Weekly activity chart data ---
+        # weekly activity chart (calories by activity per day)
         weekly_data = []
         activities = logs_qs.values_list("goal__activity__name", flat=True).distinct()
         for activity_name in activities:
@@ -241,7 +290,7 @@ class DashboardAPIView(APIView):
             if any(v > 0 for v in daily_values):
                 weekly_data.append({"activity": activity_name, "data": daily_values})
 
-        # --- Activity share (donut chart) ---
+        # activity share (donut) - calories per activity in last 7 days
         share_qs = logs_qs.values("goal__activity__name").annotate(total=Sum("calories")).order_by("-total")
         activity_share = []
         for s in share_qs:
@@ -251,24 +300,21 @@ class DashboardAPIView(APIView):
                 total_val = float(total_val)
             except (TypeError, ValueError):
                 total_val = 0.0
-            activity_share.append({
-                "activity": name,
-                "calories": round(total_val, 1),
-            })
+            activity_share.append({"activity": name, "calories": round(total_val, 1)})
 
-        # --- Recent activity logs (latest 5) ---
+        # recent activity (latest 5)
         recent_qs = ActivityLog.objects.filter(user=user).order_by("-timestamp")[:5]
         recent_activity = []
         for r in recent_qs:
-            activity_name = None
+            activity_name = r.goal.activity.name if (r.goal and r.goal.activity) else "Unknown"
             try:
-                activity_name = r.goal.activity.name if r.goal and r.goal.activity else None
-            except Exception:
-                activity_name = None
+                cal = float(r.calories or 0.0)
+            except (TypeError, ValueError):
+                cal = 0.0
             recent_activity.append({
-                "activity": activity_name or "Unknown",
+                "activity": activity_name,
                 "date": r.timestamp.date().isoformat() if r.timestamp else None,
-                "calories": round(float(r.calories or 0.0), 1),
+                "calories": round(cal, 1),
             })
 
         return Response({
@@ -277,5 +323,4 @@ class DashboardAPIView(APIView):
             "activity_share": activity_share,
             "recent_activity": recent_activity,
         }, status=200)
-
 
