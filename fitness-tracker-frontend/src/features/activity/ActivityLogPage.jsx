@@ -43,7 +43,7 @@ export default function ActivityLog() {
   // --- load activities & logs ---
   const loadActivities = async () => {
     try {
-      const res = await api.get("/api/activities/");
+      const res = await api.get("/api/activities/own/");
       setActivities(res.data || []);
     } catch (err) {
       console.error("Load activities failed:", err);

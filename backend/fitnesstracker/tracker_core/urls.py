@@ -6,7 +6,8 @@ from .views import (
     FitnessGoalViewSet,
     ActivityLogViewSet,
     ProgressViewSet,
-    DashboardAPIView
+    DashboardAPIView,
+    UserGoalActivitiesAPIView
 )
 
 router = DefaultRouter()
@@ -16,6 +17,8 @@ router.register(r"activity-logs", ActivityLogViewSet, basename="tracker-activity
 router.register(r"progress", ProgressViewSet, basename="tracker-progress")
 
 urlpatterns = [
+    path("activities/own/", UserGoalActivitiesAPIView.as_view(), name="user-goal-activities"),
     path("", include(router.urls)),
     path("dashboard/", DashboardAPIView.as_view(), name="dashboard-api"),
+    
 ]

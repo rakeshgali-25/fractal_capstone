@@ -324,3 +324,18 @@ class DashboardAPIView(APIView):
             "recent_activity": recent_activity,
         }, status=200)
 
+
+class UserGoalActivitiesAPIView(APIView):
+    """
+    Return activities that are referenced by the current user's goals.
+    Endpoint: GET /api/activities/own/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        # get activity IDs present in user's goals
+        activity_ids = FitnessGoal.objects.filter(user=user, activity__isnull=False).values_list("activity_id", flat=True).distinct()
+        qs = Activity.objects.filter(id__in=activity_ids).order_by("name")
+        serializer = ActivitySerializer(qs, many=True, context={"request": request})
+        return Response(serializer.data)
